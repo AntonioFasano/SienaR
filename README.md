@@ -33,9 +33,8 @@ In macOS, I don't know, but if you have a Mac, you probably don't need this.
 
 to install the related packages. 
 
- __Step 4__  Download `https://github.com/AntonioFasano/SienaR/blob/master/siena.R`.
- Just somewhere you deem fit.
-
+ __Step 4__  Download the main [siena.r](https://raw.githubusercontent.com/AntonioFasano/SienaR/master/siena.R) script.
+ Just somewhere you deem fit, but make sure the local name is `siena.r`.
 
  __Step 5__  Identify the local [Endpoint](https://en.wikipedia.org/wiki/Web_API#Endpoints) of ESSE3 and possibly Moodle. 
  
@@ -112,7 +111,7 @@ _Note_: There is no difference in R between single (`'`) and double (`"`)  quote
 
 The rational to browse exam sitting schedules is to first set the current course, then the sitting date of interest, and eventually download data.  
 
-To see  courses[^1] associated with your credentials, use:
+To see  courses<sup id="a1">[1](#f1)</sup> associated with your credentials, use:
 
     getCourses()
 	
@@ -170,7 +169,11 @@ The output is similar to:
                                    "17/09/2021" 
 
 
-[^1]: That is the subject that you teach, not the programme where you teach it. 
+
+ 
+ 
+<b id="f1">1</b> : That is the subject that you teach, not the programme where you teach it. [↩](#a1)
+
 
 
 ## Passing Arguments  
@@ -696,7 +699,7 @@ You might see some warnings like:
     Warning:
     ... : closing unused connection X (stdin)
 
-This is a noisy  garbage collection procedure, which does not affect the final code result, and removing warnings might hide possible serious ones. I am rewriting a bit the code logic to manually close connections.
+This is a noisy  garbage collection procedure, which does not affect the final code results, and removing warnings might hide possible serious ones. I am rewriting some of code logic to manually close connections.
 
 
 These scripts do not use the services' web APIs, which in general make the code more robust and durable. Indeed, the API documentation I was able to found was tiny. I wanted to get some job done in a reasonable time, and finding the docs outweighed the time to reverse engineering browser traffic. However, I will gradually refactor code to service APIs. 

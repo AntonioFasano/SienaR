@@ -948,13 +948,13 @@ findSittingID  <- function(examdate, compareID){ # Given a sitting date for the 
 
 moodle <- function(){ # load the Moodle plugin
     idstring <- "K&x2kvmHdDGyQ62tZN$TmuoeGJgVjzTCqH7tl2HL3#Sdhc@njS&h3K@P"
-    mscript.git <- "https://...."
+    mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/moodle.R"    
     .loadPlugin("moodle", idstring, mscript.git)
 }
 
 shibboleth <- function(){ # load the Shibboleth plugin
     idstring <- "nC2L35TPRsbXlqUw9Ku$GV@wrzz34$Kk*eSw#Q8LlbafywtE*bT3QGn%"
-    mscript.git <- "https://...."
+    mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/shibboleth.R"
     .loadPlugin("shibboleth", idstring, mscript.git)
 }
 
