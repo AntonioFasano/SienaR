@@ -1,4 +1,3 @@
-
 Not to be confused with the fictional [company](https://www.starwars.com/databank/sienar-fleet-systems).
 
 SienaR is a collections of R scripts to manage exams in the ESSE3 system, which is a Student Information System used in most (if not all) Italian academic institutions.  
@@ -21,9 +20,9 @@ In Windows, there are several fancy GUIs to make your  experience more likeable,
 [BloomR](https://github.com/antoniofasano/BloomR/) 
 distro, targeting finance labs. If you use the vanilla R, you should be good to go with
  
-    "C:\Program Files\R\R-3.X.X\bin\R.exe"
+    "C:\Program Files\R\R-4.X.X\bin\R.exe"
 
-Replace `3.X.X` with your actual version. 
+Replace `4.X.X` with your actual version. 
 
 In macOS, I don't know, but if you have a Mac, you probably don't need this. 
 
@@ -77,6 +76,12 @@ Now type:
 Where `https://yourESSE3Endpoint.edu/` is the your ESSE3 web app local endpoint, discussed in Step 5 above. 
 
 
+
+Note that the console where you type the commands (more formally, you _evaluate functions_) sports an auto-completion feature. For example, if you type `sou`  and then press the  TAB key, the string will be normally completed as the function `source`. If there are more completion alternatives possible, you will be presented with them. In the latter case, you can type some extra characters, to remove ambiguities, and hit TAB again to autocomplete. This feature applies also to path and function arguments. Try it. 
+
+
+
+
 ## Login 
 
 Before doing anything, you have to log in to the ESSE3 web app.
@@ -109,7 +114,7 @@ _Note_: There is no difference in R between single (`'`) and double (`"`)  quote
 
 ## Browse Sittings
 
-The rational to browse exam sitting schedules is to first set the current course, then the sitting date of interest, and eventually download data.  
+The rational to browse exam sitting schedules is to first set the current course, then the sitting schedule of interest, and eventually download data.  
 
 To see  courses<sup id="a1">[1](#f1)</sup> associated with your credentials, use:
 
@@ -117,7 +122,7 @@ To see  courses<sup id="a1">[1](#f1)</sup> associated with your credentials, use
 	
 You get something similar to:
 
-     Code                                             Course                                   Program
+    Entry                                             Course                                   Program
         1                       BANKING MANAGEMENT [2001563] SCIENZE ECONOMICHE E BANCARIE [EE004] (L)
         2                     FINANCIAL ENGINEERING [107420]            FINANCE - FINANZA [EG008] (LM)
         2                     FINANCIAL ENGINEERING [107420]                      FINANCE [EG005] (LM)
@@ -125,52 +130,126 @@ You get something similar to:
         3 FINANCIAL INVESTMENTS AND RISK MANAGEMENT [107421]           ECONOMIA/ECONOMICS [EG007] (LM)
         3 FINANCIAL INVESTMENTS AND RISK MANAGEMENT [107421]                     ECONOMICS [D254] (LM)
      
-    Use setCourse(Code) to select one.
+    Use setCourse(Entry) to select one.
 
 	
 The number in the first column is used to select the course. It could be repeated if the course belongs to more programmes. As suggested, to make, say, Financial Engineering current, use:
 
     setCourse(2)
 
-Now, to list the sitting dates for this course, use:
+Now, to list the scheduled exam sitting  for this course, use:
 
     getSchedules() 
 
 The output will be similar to:
 
     Schedules for Banking Management:
-      Schedules ID
-     05/10/2021  1
-     17/09/2021  2
-     02/09/2021  3
-     29/06/2021  4
+      Schedules Entry
+     05/10/2021     1
+     17/09/2021     2
+     02/09/2021     3
+     29/06/2021     4
      
-    Use setSched(ID) to select one.
+    Use setSched(entry) to select one.
 
 
-Identify  the sitting ID that interests you. Assuming it's the last date ID, issue: 
+Identify the sitting entry number which interests you, and, assuming it's the last-date entry, select it with: 
    
    
     setSched(1)
-    getEsse3data()
-
-The second function dumps  the table that you find in the Enrolled Students List page found in the official web app.  The original table lacks the student email, which works much better than the Student ID as identifier. For this reasons The function follows each link (in the table name column) to the personal student page  and from there it recovers the email. If available, the function dumps also the traffic light icons, denoting grade acceptance/rejection, in textual format. 
-
-
-If at any time you want to know what are the current course and sitting schedule, use:
+	
+The function returns the related date, which, based on the example above, would be 05/10/2021, and  sets it  as the current schedule.	 
+If, at any time, you forget  what are the current course and sitting schedule and want to check them, use:
 
     getCurrent()
 
 The output is similar to:
 
-                                           name 
-    "Financial Investments and Risk Management" 
-                                       schedule 
-                                   "17/09/2021" 
+                                           name      schedule 
+    "Financial Investments and Risk Management"  "05/10/2021" 
+
+At this point, if you want to print the details of the current exam schedule, issue:
+
+    getSched.details()
+
+The output is similar to:
+                                      
+    Desc            "Sitting VIII"        
+    esse3SchedID    "94"                  
+    Datetime        "2021-10-05 09:00:00" 
+    dateEU          "05/10/2021"          
+    Enrol Status    "Registrations closed"
+    Enrol Num       "12"                   
+    Enrol Green     "TRUE"                
+    Graded Status   "Results input closed"
+    Graded Num      "12"                   
+    Graded Green    "TRUE"                
+    Recorded Status "Recordings closed"   
+    Recorded Num    "12"                   
+    Recorded Green  "TRUE"                
 
 
+The output, which could be improved in the future for readability, is roughly similar to the related row in the schedule grid of the exam schedules page in the web app. "Recording" is the  digital signature of the  grades published online, that is ESSE3 legalese. Don't confuse the `esse3SchedID` sitting ID, used internally by ESSE3, with the sitting's  entry number from `getSchedules()`: the latter is just a convenience to set the current schedule.   
+Note that you can use this function to query any schedule for the current course. To do so, use whether the related entry number (from `getSchedules()`) or its date, e.g: 
 
+    getSched.details(2)
+    getSched.details( date = as.Date("2021/09/17") )
+	
+Yes, `as.Date("2021/09/17")` is the formal way to use a date in R language, that is: `as.Date("year/month/day")`. There are some advantages in using the so-called ISO dates, but it is annoying to type them so and that will be simplified in the future, opting for a human date syntax. 
+
+Now, you might want to get some information about students enrolled to the current sitting, this is done with:
+
+    getSched.studs()
+
+
+The output is quite large, so is usually split, unless you have a very large screen, and is similar to: 
+
+
+       enrol-day stud-id                  fullname stud-notes course-id program-id enrol-year credits result accept-flag 
+    1 25/09/2021  ******        ******************               107421      EG008  2020/2021       9     27    accepted 
+    2 24/09/2021  ******        ******************               107421      EG008  2020/2021       9     25     notseen 
+	.        ...     ...                       ...                  ...        ...        ...     ...    ...         ... 
+	  
+      exam-type student.birth                       student.email         tax.code esse3studid
+    1         D    26/03/1998 *********************************** ****************      ******
+    2         D    20/08/1998 *********************************** ****************      ******
+	.        ...          ...                                 ...              ...         ...  
+	
+
+What you get is, by and large, the grid found on the Enrolled Students List page in the web app, plus some extra columns that are found on each personal student web page, such as the student email (which works much better than the Student ID as identifier). The function prints also the traffic light icons, denoting the grading acceptance/rejection, in textual format.   
+Nota that the `esse3studid` column is an internal student ID, used  by the web app to identify the personal page of the student; you normally want the  `stud-id` column instead, 
+
+To get personal student data, this function chases each link to student pages, which could slow down a bit the output production. To avoid this, you can use:
+
+
+    getSched.studs(personal = FALSE)
+
+which  essentially gives  the same output as the related ESSE3 page, speeding up results. If what you need is a compact print, showing just the results with the accept flags next to the student name and email, use: 
+
+    getSched.studs(short = TRUE)
+
+Of course, if you use the arguments `short = TRUE, personal = FALSE`, you will not get the email could, as that would require accessing  the student personal pages. 
+
+Finally, you can make a general check of the traffic lights status with:
  
+ 
+    getPending()
+ 
+This function scans the exam-schedules page of each course and looks for any non-green status under the "Results entered", and "Records generated" columns. Essentially, that means you did not yet publish grades or did not digitally sign them. 
+
+
+    Banking Management
+           date  time graded.green recorded.green
+     05/10/2021 11:00         TRUE          FALSE
+     
+    Financial Engineering
+    No non-green label found.
+     
+    Financial Investments and Risk Management
+    No non-green label found.
+
+In this case, for the Banking Management exam, grades were published but not digitally signed. 
+
  
 <b id="f1">1</b> : That is the subject that you teach, not the programme where you teach it. [↩](#a1)
 
@@ -237,7 +316,7 @@ For your convenience, I put every argument on a line of its own. When you type i
 
 ## Add an Exam Committee
 
-The exam committee can be added immediately after the creation of the sitting or at a later date. In the first case, it is suggested to retrieve the internal web app sitting ID, from the function `addSitting()`, as follows:
+The exam committee can be added immediately after the creation of the sitting or at a later date. In the first case, it is suggested to retrieve the ESSE3 internal sitting ID, from the function `addSitting()`, as follows:
 
 
     sid <- addSitting("Financial Engineering", examdate = as.Date("2021/10/30"), examtime = "11:30", 
@@ -247,8 +326,8 @@ The exam committee can be added immediately after the creation of the sitting or
 _Note_:  `<-`  just means `=`. If you don't like this convention, use the latter symbol.  	
 
 
-`sid` is a variable name you choose to assign the ID value. 
-You can use this variable when giving a committee to the exam sitting, with:
+`sid` is just any variable name you choose to assign the ESSE3 sitting ID value. 
+You can, then,  use this variable when giving a committee to the exam sitting, with:
 
     addCommittee(
        course = "Financial Engineering",
@@ -257,7 +336,7 @@ You can use this variable when giving a committee to the exam sitting, with:
 	   sittingID = sid
     )
 
-If you don't have the sitting ID from the sitting function, just don't pass this argument, and the function `addCommittee()` will find it by itself. 
+If you don't have the sitting ID from the sitting function, just don't pass this argument, and  `addCommittee()` will find it by itself. 
 
 The argument `committee` requires some usage notes. It is a comma-separated list of member names. The way member names are formatted reflects the fields used in the official web app and format is "First Family", such as for John Smith. For cases with multiple first and family names, such as Melinda Ann French Gates, you join them with a dash, therefore "Melinda-Ann French-Gates". By using the dash, we can  say that Melinda and Ann are first names, while French and Gates are family names. Finally, you can use the employee ID (Matricola), which is recognised as consisting only of numbers.  
 
@@ -280,10 +359,15 @@ This will give a list with all people whose first name starts with "John", and f
 		
 Note, by the way, that here we use the internal web app format, which starts with the family name. This will be changed in the future.  	
 	
-	
+At a later time, when you are all done with setting committees, you might want to check what are the members for a given sitting committee. Type something along the lines of:
+
+    findCommittee("Banking Management", examdate = as.Date("2021/10/05"))
+
+and you'll get a table with the employee ID, the full name, and the e-mail of each member of the exam committee for the Banking Management sitting scheduled on 05/10/2021.
+
 ## Adding Grades to an Exam Sitting
 
-This is handled by the function `postGrades()`. That was used to automatically route grades computed in the lab by my e-learning tool, [Testmacs](https://github.com/antoniofasano/testmacs),  to the Student Management System. Due to the pandemic, this feature is temporarily halted. 
+This is handled by the function `postGrades()`. That was used to automatically route grades computed in the lab by my e-learning tool, [Testmacs](https://github.com/antoniofasano/testmacs),  to the Student Management System. Due to the pandemic, this feature is temporarily halted. However, it is possible to automatically retrieve, grade and post Moodle quiz responses.
 
 	
 # SienaR Plugins
@@ -536,7 +620,7 @@ and you get:
 You see the email address has been removed, while you the first column shows the SHA-1 of the student ID. A student knowing their student ID can obtain its SHA-1 hash from a myriad of [online services](https://duckduckgo.com/?q=hash+online), or a local utility, and identify their own grade, but not those of the others'. 
 
 
-Because student-ID hashes are not resistant to a rule based attack, you might want to use (yet this could be overkilling to many):
+Because student ID hashes are not resistant to a rule based attack, you might want to use (yet this could be overkilling to many):
 
 
     anonymise(grades, tax = TRUE)
@@ -634,7 +718,7 @@ You can also visit a course page like the following:
      https://....yourdomain.edu/.../course/view.php?id=1234
 
 
-Here you strip `course/view.php?id=1234` (where `1234` is the course ID) to get the endpoint. 
+Here you strip `course/view.php?id=1234` (where `1234` is the Moodle course ID) to get the endpoint. 
 
 
 ### Shibboleth Setup and Use
@@ -688,24 +772,29 @@ If you use a leading  `~/` in the path, SienaR  expands it to the home directory
 
 where `USERNAME` is the name  of the current Windows user. This is unless you hacked R defaults. 
 
+There is also another option for Windows users to use backslashes, that is,  the raw character syntax. Here, a trivial example is worth more than words:
 
-When using paths, it is suggested to use **absolute path**. If you use a relative path, it is relative to the _current_ working directory, and you are supposed to understand which is. If you are confident with R language, you might use the function `getwd()` and  `setwd("new-wd-path")` to print or change the current working directory. 
+    r"(C:\Users\antonio\Desktop\sienafiles)"
+
+As you can see, using the syntax `r"(...)"` allows typing a Windows path as is. This is particularly convenient if you have a long path that you are pasting  from the Windows file browser.
+
+If you pair these options with the TAB auto-completion features mentioned above, you can type paths fast and, most of all, without error. 
 
 
-# Troubleshooting
 
-You might see some warnings like:
+# Versions, Troubleshooting, and Known Issues
+
+Use the `version()` function to learn about the version you are using or check the `changelog.md`. If you want to know about the last commit, use:
+
+    version(changes = TRUE)
+
+
+Currently, you might see some warnings like:
 
     Warning:
     ... : closing unused connection X (stdin)
 
-This is a noisy  garbage collection procedure, which does not affect the final code results, and removing warnings might hide possible serious ones. I am rewriting some of code logic to manually close connections.
+This is a noisy  garbage collection procedure, which does not affect the final code results, and removing warnings might hide possible serious ones. I am rewriting some of the code logic to manually close connections.
 
-
-These scripts do not use the services' web APIs, which in general make the code more robust and durable. Indeed, the API documentation I was able to found was tiny. I wanted to get some job done in a reasonable time, and finding the docs outweighed the time to reverse engineering browser traffic. However, I will gradually refactor code to service APIs. 
-
-
-
-
-
+These scripts do not use the services' web APIs, which in general make the code more robust and durable. Indeed, the API documentation I was able to found was tiny. I wanted to get some job done in a reasonable time, and finding the docs outweighed the time to reverse engineering browser traffic. However, I will gradually refactor code to service APIs, if I found the docs. 
 
