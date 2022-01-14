@@ -316,7 +316,8 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
         message(sprintf("Schedules for %s:", G$Courses[G$CurCourse, "Course"]))
         print(data.frame(Schedules=scheds$dateEU, Entry=seq_along(scheds$dateEU)), row.names=FALSE)
         message("\nUse setSched(entry) to select one.\n")
-    }
+    } 
+    invisible(scheds)    
 }
 
 .getSchedules <- function(){ # getSchedules() workhorse

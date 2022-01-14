@@ -245,7 +245,7 @@ grader.credits <- function( # This is a version of grader() weighting grades by 
     sgrades <- grader(csvpath, save = FALSE)
 
     ## Get ESSE3 data with credits 
-    esse3data <- getEsse3data()
+    esse3data <- getSched.studs()
     e3file  <- file.path(G$workdir, "studata.rds")
     saveRDS(esse3data, e3file)
     ## esse3data <- readRDS(e3file)
@@ -293,7 +293,7 @@ anonymise <- function( # use SHA-1 hash of student-ID
                                      "login(); getCourses(); setCourse(...code); getSchedules(); setSched(...num)\n")
     
     ## Get ESSE3 data with credits 
-    esse3data <- getEsse3data()
+    esse3data <- getSched.studs() 
     e3file  <- file.path(G$workdir, "studata.rds")
     saveRDS(esse3data, e3file)
     ## esse3data <- readRDS(e3file)
