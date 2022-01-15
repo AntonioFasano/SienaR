@@ -437,6 +437,10 @@ getSched.details <- function( # Get details for the default exam schedule or a g
 
     sched <- scheds[entrynum, ]
 
+    ## Add course name after sitting desc
+    cname <- getCurrent()['name']
+    sched <-  append(sched, list(course = cname), 1)
+
     ## Pretty print
     sched <- t(list2DF(sched))
     colnames(sched) <- " "
