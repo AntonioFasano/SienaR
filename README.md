@@ -157,7 +157,7 @@ You get something similar to:
 
 	
 The number in the first column is used to select the course. It could be repeated if the course belongs to more programmes.  
-As the output of `getCourses()` suggests, we can use it to select a course by means of its related entry. Before doing this, we want to get an overview of enrolled students for the next available sittings from a given date. To achieve this we can use a line similar to this:
+As the output of `getCourses()` suggests, we can use it to select a course by means of its related entry. Before doing this, we want to get an overview of enrolled students for the next available sittings from a given date. To achieve this, we can use a line similar to this:
 
     getSummary(as.Date('2021-10-04'))
 
