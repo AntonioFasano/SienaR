@@ -582,7 +582,7 @@ getSummary <- function( # Enrolled students for each course and for first availa
 
     smry <- t(sapply(seq_along(unique(getCourses(prompt = FALSE))), function(cur){
         course <- setCourse(cur)
-        dates <- as.Date(.getSchedules()$datetime) # dates are descending
+        dates <- as.Date(getSchedules(prompt = FALSE)$datetime) # dates are descending
         enrolcount <- paste("No sitting available from", fromDate)
         sitdate <- NA
         which.dates <- which(dates >= fromDate)
@@ -590,11 +590,11 @@ getSummary <- function( # Enrolled students for each course and for first availa
             sitdate <- setSched(max(which.dates))
             enrolcount <- getSched.details()['Enrol Num',]
         }
-        c(sitdate, course, enrolcount)    
+        c(paste(as.Date(sitdate, "%d/%m/%Y")), course, enrolcount)
     }))
 
     message("Asked date ", fromDate, "\n")
-    message("Enrolled Students ", fromDate, "\n",
+    message("Enrolled Students\n",
             paste(apply(smry, 1, paste, collapse=" "), collapse = "\n"))
 
 }

@@ -156,7 +156,24 @@ You get something similar to:
     Use setCourse(Entry) to select one.
 
 	
-The number in the first column is used to select the course. It could be repeated if the course belongs to more programmes. As suggested, to make, say, Financial Engineering current, use:
+The number in the first column is used to select the course. It could be repeated if the course belongs to more programmes.  
+As the output of `getCourses()` suggests, we can use it to select a course by means of its related entry. Before doing this, we want to get an overview of enrolled students for the next available sittings from a given date. To achieve this we can use a line similar to this:
+
+    getSummary(as.Date('2021-10-04'))
+
+This will give the next available sitting for each course starting from 04 October 2021. Note how the passed date uses the special date notation: `as.Date("year/month/day")`.  The output will be similar to the following:
+
+    Asked date 2021-10-04
+     
+    Enrolled Students
+    2021-10-05 Banking Management 15
+    2021-10-05 Financial Engineering 10
+    2021-10-05 Financial Investments and Risk Management 13
+	
+This implies that for the asked date the next sitting is available for each course on 05 October 2021 with the shown enrolled students. If no date argument is given to `getSummary()`, then the current day is used. 
+
+
+If we want to read or make modifications to a specific course, we need to make it current. As noted before, this is done using the course entry returned by `getCourses()`. Given the output of this function just shown above, if we want to make current, say, the the Financial Engineering course, we use:
 
     setCourse(2)
 
@@ -252,6 +269,7 @@ which  essentially gives  the same output as the related ESSE3 page, speeding up
     getSched.studs(short = TRUE)
 
 Of course, if you use the arguments `short = TRUE, personal = FALSE`, you will not get the email could, as that would require accessing  the student personal pages. 
+
 
 Finally, you can make a general check of the traffic lights status with:
  
