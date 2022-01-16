@@ -10,6 +10,29 @@ You can do essentially two things with SienaR.
 
 The second feature was intended as a plug-in for my [Testmacs](https://github.com/antoniofasano/testmacs) e-learnig tool for R. Unfortunately, because of the pandemic, I can't use Testmacs in these days, so this feature is temporarily halted. However, as the labs open again, the development will restart. It is, by the way, replaced by a plugin using [Moodle](https://moodle.org/), which can download MCQ responses, grade them and upload grades to ESSE3.   
 
+- [How to Install](#how-to-install)
+- [Usage](#usage)
+  - [Login](#login)
+  - [Browse Sittings](#browse-sittings)
+  - [Passing Arguments](#passing-arguments)
+  - [Add a New Sitting Date](#add-a-new-sitting-date)
+  - [Add an Exam Committee](#add-an-exam-committee)
+  - [Adding Grades to an Exam Sitting](#adding-grades-to-an-exam-sitting)
+- [SienaR Plugins](#sienar-plugins)
+  - [Information About Plugins](#information-about-plugins)
+  - [Moodle Plugin](#moodle-plugin)
+    - [Setup](#setup)
+    - [Usage](#usage-1)
+    - [Login to Moodle](#login-to-moodle)
+    - [Getting the Moodle Response File](#getting-the-moodle-response-file)
+    - [Grading](#grading)
+    - [Posting Grades to ESSE3](#posting-grades-to-esse3)
+  - [Shibboleth Plugin](#shibboleth-plugin)
+    - [Endpoints with SSO redirection](#endpoints-with-sso-redirection)
+    - [Shibboleth Setup and Use](#shibboleth-setup-and-use)
+- [Specifying File and Directory Paths](#specifying-file-and-directory-paths)
+- [Versions, Troubleshooting, and Known Issues](#versions-troubleshooting-and-known-issues)
+
 # How to Install
 
 __Step 1__ Install [R](https://www.r-project.org/).  If you did already,  just make sure the version is not several years old. 
@@ -82,7 +105,7 @@ Note that the console where you type the commands (more formally, you _evaluate 
 
 
 
-## Login 
+## Login
 
 Before doing anything, you have to log in to the ESSE3 web app.
 
@@ -255,7 +278,7 @@ In this case, for the Banking Management exam, grades were published but not dig
 
 
 
-## Passing Arguments  
+## Passing Arguments
 
 In the next sections, R functions with arguments are used.
 
@@ -495,7 +518,7 @@ Bear in mind that this is a real Comma Separated File (CSV), and, for some cultu
 
 
 
-### Grading 
+### Grading
 
 Grading functions  are intended for multiple-choice questions previously downloaded. 
 

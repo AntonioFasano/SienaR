@@ -1,3 +1,21 @@
+
+# v0.1.1 2022-01-16
+
+- Added `getSummary()` which shows enrolled students for each course and for first available sitting from current date or a user given date
+
+- Readme gets a summury based on [gfm-toc](https://github.com/atheiman/gfm-toc)
+
+# v0.1.1 2022-01-15
+
+- `getSched.details()` includes course name
+
+
+# v0.1.1 2022-01-14
+
+- Fixed: `getSchedules()` invisibly returns values if `prompt=FALSE`. 
+- Fixed:  In `grader.credits()` and `anonymise()` replaced `getSched.studs()` for `getEsse3data()`
+
+
 # v0.1.0 2021-10-10 
 
 - Fixed: ESSE3 traffic-lights colours in the results pages, indeed more than three.   
