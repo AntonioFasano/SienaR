@@ -1,9 +1,8 @@
 
-# v0.1.1 2022-01-16
+# v0.1.2 2022-01-16
 
 - Added `getSummary()` which shows enrolled students for each course and for first available sitting from current date or a user given date
-
-- Readme gets a summury based on [gfm-toc](https://github.com/atheiman/gfm-toc)
+- Readme gets a summary based on [gfm-toc](https://github.com/atheiman/gfm-toc)
 
 # v0.1.1 2022-01-15
 
