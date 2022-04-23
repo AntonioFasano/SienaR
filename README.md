@@ -25,6 +25,7 @@ The second feature was intended as a plug-in for my [Testmacs](https://github.co
     - [Usage](#usage-1)
     - [Login to Moodle](#login-to-moodle)
     - [Getting the Moodle Response File](#getting-the-moodle-response-file)
+    - [Alternative Ways to Find Moodle Quiz IDs](#alternative-ways-to-find-Moodle-quiz-IDs) 
     - [Grading](#grading)
     - [Posting Grades to ESSE3](#posting-grades-to-esse3)
   - [Shibboleth Plugin](#shibboleth-plugin)
@@ -533,6 +534,38 @@ and the quiz ID will be recognised.
 The response file is  downloaded in the working directory, which you have set before,  as `responses.csv`, and you can view it in Excel. 
 
 Bear in mind that this is a real Comma Separated File (CSV), and, for some cultures, Excel uses semicolons in place of commas. In these instances, you have to apply well-known workarounds (which go beyond scope here). 
+
+
+### Alternative Ways to Find Moodle Quiz IDs 
+
+As an alternative to browsing the Moodle to find the quiz ID, you can use the functions `findMoodleID` `findQuizID`. The first function prints a list of Moodle courses based on the name of the current course, e.g.:
+
+    findMoodleID()
+
+You get a listing similar to:
+
+
+         Fullname                                       Contacts      
+    1234 FINANCIAL INVESTMENTS AND RISK MANAGEMENT 2020 Antonio Fasano
+    1235 FINANCIAL INVESTMENTS AND RISK MANAGEMENT 2021 Antonio Fasano
+    ....
+
+The research is case insensitive, and hopefully the name used by Moodle is not different from the ESSE3 one. Of course, there is no way to find a match if, say, the Moodle convention is to use an initialism, such FIRM, for the case above. In this case, you can specify yourself a search string, that is:
+
+    findMoodleID("FIRM")
+  
+
+As you guessed, the rightmost column of the output is the course ID used by Moodle and, once you identify the reference course, you give it as an argument to: 
+
+    findQuizID(1234)
+
+So you get
+
+
+         QuizName                                 
+    1234 Financial Investments and Risk Management - Quiz 1
+    1235 Financial Investments and Risk Management - Quiz 2
+    ...
 
 
 

@@ -5,6 +5,9 @@
 ##   getCourses() > setCourse(Entry) > getSchedules() > setSched(Entry) >
 ##   getSched.details, getSched.studs(), getPending()
 
+## Stats:
+##   getSummary(); getPending()
+
 ## Add sittings
 ## sitID <- addSitting(courseName, examdate, examtime, bookStart, bookEnd, results, examtype, examdesc, examnote)
 ## addCommittee(courseName, examdate, committee, sitID)
@@ -23,7 +26,12 @@
 #################################################################
 
 SIENA <- new.env()  #Init global environment
+
+## User 
 SIENA$esse3url  <- NULL
+SIENA$workdir  <- NULL
+
+## Status pars
 SIENA$e3Credents <-  NULL # ESSE3 credentials as user:pass
 SIENA$e3Handle <- NULL
 SIENA$e3CoursePars <- NULL # List of vectors of pars to query a course, ordered by course entry
@@ -31,8 +39,8 @@ SIENA$Courses <- NULL
 SIENA$Schedules <- NULL
 SIENA$CurCourse <- NULL
 SIENA$CurSchedule <- NULL
+SIENA$CurSchedule.e3 <- NULL  # ESSE3 sitting ID 
 SIENA$mainpath <-  sys.calls()[[1]] [[2]]
-SIENA$workdir  <- NULL
 
 #################################################################
 ##                          Libraries                          ##
@@ -221,6 +229,7 @@ checkLogin  <- function(resp, first=FALSE){
 .getin <- function(fld){ # Extract course elements stored by .parseInputs
     G <- SIENA
     val <- G$e3CoursePars[[G$CurCourse]][fld]
+    if(fld == "APP_ID") val <- G$CurSchedule.e3 # This field is set manually by setSched()
     paste0(fld, "=", val) 
 }
 
@@ -266,7 +275,7 @@ getCourses <- function( # Get available courses, assign a sequential entry numbe
     ## Extract course data from links
     courses.raw <-  .htmlTab2Array(course.tab, toText = FALSE)
     links <- unique(lapply(courses.raw, "[[", 3)[-1])
-    forms <- lapply(links, xml_find_all, "./form") 
+    forms <- lapply(links, xml_find_all, "./form")
     G$e3CoursePars <- setNames(lapply(forms, .parseInputs), G$Courses$Entry)
     invisible(G$Courses)
     
@@ -384,7 +393,7 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
         
 }
 
-setSched <- function( # Set entry as global `CurSchedule' and add its esse3SchedID to global course pars
+setSched <- function( # Set entry as global `CurSchedule' and set related ESSE3 sitting ID as global `CurSchedule.e3'
                      entry # Schedule entry number as from getSchedules() 
                      ) {
     
@@ -392,7 +401,8 @@ setSched <- function( # Set entry as global `CurSchedule' and add its esse3Sched
     if(is.null(G$Schedules)) stop("Please, run getCourses(), setCourse() and getSchedules() first")
     G$CurSchedule <- entry
     scheduleid <- G$Schedules$esse3SchedID[entry]
-    G$e3CoursePars[[G$CurCourse]]["APP_ID"] <- scheduleid
+    #G$e3CoursePars[[G$CurCourse]]["APP_ID"] <- scheduleid
+    G$CurSchedule.e3 <- scheduleid # The field is set manually to avoid a reset every getCourses()
     G$Schedules[entry, "dateEU"]
 }
 

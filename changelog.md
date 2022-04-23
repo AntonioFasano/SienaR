@@ -1,3 +1,8 @@
+# v0.1.2 2022-04-24
+
+- Added `findMoodleID()` `findQuizID()`. The first function looks for Moodle course IDs based on the name of the currently set SieanR course or you can pass a specific course name used by Moodle; the second returns Moodle quiz IDs based on a Moodle course ID. 
+
+- Added a global variable (`CurSchedule.e3`) to track the current internal ESSE3 sitting ID (`APP_ID`). The latter is blanked whenever ESSE3 is queried for the course list, which required the user to set again the current exam schedule.
 
 # v0.1.2 2022-01-16
 

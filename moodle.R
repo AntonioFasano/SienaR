@@ -12,6 +12,7 @@ if(!exists("SIENA")) stop("This script is a plugin for the main Siena script. Ru
 SIENA$moodleurl    <- NULL
 SIENA$moodCredents <- NULL 
 SIENA$moodHandle   <- NULL
+SIENA$moodRestToken <- NULL
 SIENA$goodans  <-  2  # correct answer
 SIENA$badans   <- -1  # wrong answer. Set to 0 for no penalty
 SIENA$skipans  <-  0  # skipped answer
@@ -30,9 +31,9 @@ login.moodle  <- function(onelog = FALSE){ # login to Moodle
     if(onelog) G$moodCredents <- G$e3Credents
     if(is.null(G$moodCredents)) G$moodCredents <- charToRaw(.cred.prompt())     
     credlst  <- .cred.split(G$moodCredents)
-    creds.post <-  paste0("username", "=", curl_escape(credlst$user), "&",
-                          "password", "=", curl_escape(credlst$pw))
-    creds.post <- charToRaw(creds.post) # because other post fields below are raw 
+    creds <-  paste0("username", "=", curl_escape(credlst$user), "&",
+                     "password", "=", curl_escape(credlst$pw))
+    creds.post <- charToRaw(creds) # because other post fields below are raw 
 
     ## Set Moodle login url and get token 
     h <- new_handle()
@@ -56,6 +57,12 @@ login.moodle  <- function(onelog = FALSE){ # login to Moodle
 
     ## On success return handle 
     G$moodHandle <- h
+
+    ## Obtain Moodle restful toke
+    resturl <- paste0(G$moodleurl, "/login/token.php?service=moodle_mobile_app&", creds) 
+    resp <- curl_fetch_memory(resturl)
+    json <- rawToChar(resp$content)
+    G$moodRestToken <- strsplit(json, "\"")[[1]][[4]]    
 
     ## Bash tests 
     ## echo -n "username=username&password=password:" ; read -s usrpw
@@ -327,6 +334,69 @@ anonymise <- function( # use SHA-1 hash of student-ID
         message("\nGrades saved to ", grfile)
         invisible(grades) # invisibly to avoid adding message
     } else grades
+}
+
+findMoodleID <- function(# Print Moodle courses with IDs, contains the current course as a substring or a given one 
+                         searchfor = NULL # Use this as search string if not NULL  
+                         ){
+  ## The match is case insensitive
+
+  G <- SIENA
+  if(is.null(G$CurCourse) && is.null(searchfor)) stop("Please, set course first")
+
+  courses.url <- paste0(G$moodleurl, "/webservice/rest/server.php?wsfunction=core_course_get_courses_by_field&wstoken=",
+                        G$moodRestToken)
+
+  courses.xml <- read_xml(courses.url)
+  courses <- xml_find_all(courses.xml, "/RESPONSE/SINGLE/KEY[@name='courses']/MULTIPLE/SINGLE")
+  courses.names <- xml_text(xml_find_all(courses, "KEY[@name='fullname']"))
+
+  searchfor <- G$Courses$Course[[G$CurCourse]]
+  found <- grep(toupper(searchfor), toupper(courses.names), fixed = TRUE)
+  if(!length(found)) stop("Unable to find a course containing (ignoring case) the string:\n", searchfor)
+
+  course.tab <- t(sapply(courses[found], function(course) {
+    CourseID <- xml_text(xml_find_all(course, "KEY[@name='id']"))
+    Fullname <- xml_text(xml_find_all(course, "KEY[@name='fullname']"))
+    Contacts <- xml_text(xml_find_all(course, "KEY[@name='contacts']/MULTIPLE/SINGLE/KEY[@name='fullname']"))
+    c(CourseID = CourseID, Fullname = Fullname, Contacts = Contacts)
+  }))
+
+  row.names(course.tab) <- course.tab[, 'CourseID']
+  course.tab <- course.tab[, -1, drop = FALSE]
+  print(course.tab , quote = FALSE)
+
+}
+
+
+findQuizID <- function(# Print all quizzes found for a given course ID, with related quiz ID
+                         courseID
+                         ){
+
+  G <- SIENA
+  course.url <- paste0(G$moodleurl, "/webservice/rest/server.php?wsfunction=core_course_get_contents&wstoken=",
+                        G$moodRestToken,
+                        "&courseid=", courseID)
+
+  course.xml <- read_xml(course.url)
+  modules <- xml_find_all(course.xml, "/RESPONSE/MULTIPLE/SINGLE/KEY[@name='modules']/MULTIPLE/SINGLE")
+  found <- xml_text(xml_find_all(modules, "KEY[@name='modname']")) == "quiz"
+  if(!length(found)) stop("Unable to find any quiz in course ", courseID)
+  modules[found]
+
+  module <- modules[found][[1]]
+
+  quiz.tab <- t(sapply(modules[found], function(module){
+    QuizID <- xml_text(xml_find_all(module, "KEY[@name='id']"))
+    QuizName <- xml_text(xml_find_all(module, "KEY[@name='name']"))
+    c(QuizID = QuizID, QuizName = QuizName)
+  }))
+
+  row.names(quiz.tab) <- quiz.tab[, 'QuizID']
+  quiz.tab <- quiz.tab[, -1, drop = FALSE]
+  print(quiz.tab , quote = FALSE)
+
+  
 }
 
 
