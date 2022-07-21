@@ -10,6 +10,8 @@ You can do essentially two things with SienaR.
 
 The second feature was intended as a plug-in for my [Testmacs](https://github.com/antoniofasano/testmacs) e-learnig tool for R. Unfortunately, because of the pandemic, I can't use Testmacs in these days, so this feature is temporarily halted. However, as the labs open again, the development will restart. It is, by the way, replaced by a plugin using [Moodle](https://moodle.org/), which can download MCQ responses, grade them and upload grades to ESSE3.   
 
+_Warning_  I can only test SienaR with my university ESSE3 system. The login page of yours might be customised in a non-standard way not enlisted here.
+
 - [How to Install](#how-to-install)
 - [Usage](#usage)
   - [Login](#login)

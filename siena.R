@@ -233,6 +233,29 @@ checkLogin  <- function(resp, first=FALSE){
     paste0(fld, "=", val) 
 }
 
+.urlHost <- function(url) # Extract http[s]://www.example.com *without* trailing slash
+  regmatches(url, regexpr("http[s]{0,1}://[^/]+", url))
+
+.urlIsAbsolute <- function(url) length(.urlHost(url)) > 0
+
+.replayForm <- function( # Replay a post form 
+                          form,  # form xml2 node,
+                          resp,  # response header to get post url
+                          handle # to get stored possible cookies
+                          ){  
+  inputs <- xml_find_all(form, ".//input[not(@type='submit')]")
+  flds <- curl_escape(xml_attr(inputs, "name"))
+  vals <- xml_attr(inputs, "value")
+  vals[is.na(vals)] <- ""
+  vals <- curl_escape(vals)
+  postfields <-paste(paste(flds, vals, sep="="), collapse = "&")
+  postfields.opt <- list(post = TRUE, postfields = postfields, postfieldsize = nchar(postfields))
+  submitLink <- xml_attr(form, "action")
+  url <- if(.urlIsAbsolute(submitLink)) submitLink else paste0(.urlHost(resp$url), submitLink)
+  handle_setopt(handle, .list = postfields.opt)
+  curl_fetch_memory(url, handle = handle)
+}
+
 
 ##################################################################
 ##                        Exam Schedules                        ##
@@ -1097,6 +1120,9 @@ findSittingID  <- function(examdate, compareID){ # Given a sitting date for the 
 ##                           Plugins                           ##
 #################################################################
 
+### Plugin scripts have an ID, to make sure local version match remote ones.
+### If you modify myplugin, use .signPlugin(myplugin) and update myplugin() with the new ID string
+
 moodle <- function(){ # load the Moodle plugin
     idstring <- "K&x2kvmHdDGyQ62tZN$TmuoeGJgVjzTCqH7tl2HL3#Sdhc@njS&h3K@P"
     mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/moodle.R"    
@@ -1104,12 +1130,15 @@ moodle <- function(){ # load the Moodle plugin
 }
 
 shibboleth <- function(){ # load the Shibboleth plugin
-    idstring <- "nC2L35TPRsbXlqUw9Ku$GV@wrzz34$Kk*eSw#Q8LlbafywtE*bT3QGn%"
+    idstring <- "237f151825685a480373724d0f2d4b583078675167553d3823114f302e"
     mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/shibboleth.R"
     .loadPlugin("shibboleth", idstring, mscript.git)
 }
 
-.loadPlugin <- function(plugname, idstring, url){ # Load the a plugin with a given ID-string and URL
+.loadPlugin <- function( # Load the a plugin with a given ID-string and URL
+                        plugname, # file basename
+                        idstring, # To check a possible local version is the same as the remote one
+                        url){ 
 
     G <- SIENA
 
@@ -1129,6 +1158,49 @@ shibboleth <- function(){ # load the Shibboleth plugin
     source(script.path)
 
 }
+
+.signPlugin <- function(plugname){ # Sing local plugin
+
+    G <- SIENA
+
+    script.url <- url
+    basename <- paste0(plugname, ".R")
+    script.path  <- file.path(dirname(G$mainpath), basename)
+    script.txt <- readLines(script.path)
+
+    script.txt <- head(script.txt, -1)
+    idstring <- .idstring(script.txt)
+    comm <- paste(c("### ", as.character(idstring)), collapse = "")
+    new.script <- c(script.txt, comm)
+    ans <- readline(paste0("Overwrite ", basename, "? (Y/any) "))
+    if(ans == "Y") writeLines(new.script, script.path) 
+    message("ID string in ", basename, " overwritten.\nManually update idstring in ",
+            paste0(tools::file_path_sans_ext(basename), "() with:\n"),
+            idstring)
+}
+## .signPlugin("shibboleth")
+
+
+.idstring <- function( # This is not a real hash 
+                  text,     
+                  len = 29, # length of the idstring
+                  pad = 13  # pad byte as a decimal 
+                  ){
+    
+
+    if(length(text) > 1) text <- paste(text, collapse = "\n")
+    
+    raw <- charToRaw(text)
+    ## If text length not a multiple of len fill with "pad"
+    raw <- c(raw, rep(as.raw(pad), len - length(raw) %% len)) 
+
+    ## Split in vectors of length len and xor them
+    raw <- split(raw,  rep(1:(length(raw)/len), each = len))
+    Reduce(xor, raw)    
+}
+## .idstring("Hello World")  == .idstring("Hello\nWorld") 
+## .idstring("Hello\nWorld") == .idstring(c("Hello", "World"))
+
 
 version <- function(changes = FALSE){
 
@@ -1159,8 +1231,6 @@ version <- function(changes = FALSE){
     if(changes) message(paste(wrap, collapse = "\n")) else message(version)
     
 }
-
-
 
 
 ##################################################################
@@ -1263,4 +1333,5 @@ version <- function(changes = FALSE){
     
 .firstNA <- function( # Used by .htmlTab2Array
                     vec) which(sapply(vec, is.na))[1]
+
 
