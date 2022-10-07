@@ -8,7 +8,7 @@ You can do essentially two things with SienaR.
 - Browse and set exam schedules. 
 - Upload exam results.  
 
-The second feature was intended as a plug-in for my [Testmacs](https://github.com/antoniofasano/testmacs) e-learnig tool for R. Unfortunately, because of the pandemic, I can't use Testmacs in these days, so this feature is temporarily halted. However, as the labs open again, the development will restart. It is, by the way, replaced by a plugin using [Moodle](https://moodle.org/), which can download MCQ responses, grade them and upload grades to ESSE3.   
+The second feature was intended as a plug-in for my [Testmacs](https://github.com/antoniofasano/testmacs) e-learning tool for R. It is also possible by means of a plugin based on [Moodle](https://moodle.org/), which can download MCQ responses, grade them and upload grades to ESSE3.   
 
 _Warning_  I can only test SienaR with my university ESSE3 system. The login page of yours might be customised in a non-standard way not enlisted here.
 
@@ -63,8 +63,7 @@ to install the related packages.
 
  __Step 5__  Identify the local [Endpoint](https://en.wikipedia.org/wiki/Web_API#Endpoints) of ESSE3 and possibly Moodle. 
  
- Because ESSE3 is a self-hosted web app (like perhaps your employer mail server), you have to figure out which is the home address. 
- For the [Basic Access Authentication](https://en.wikipedia.org/wiki/Basic_access_authentication) method, you just go to the ESSE3 login page. Its address is similar to:
+Because ESSE3 is a self-hosted web app (like perhaps your employer mail server), you have to figure out which is the home address (endpoint). For the [Basic Access Authentication](https://en.wikipedia.org/wiki/Basic_access_authentication) method, you just go to the ESSE3 login page. Its address is similar to:
  
      https://....yourdomain.edu/.../auth/Logon.do
  
@@ -475,7 +474,7 @@ If the working directory does not exist and the path is valid, it is created. Be
 
 ### Login to Moodle
 
-Unless you using local files manually downloaded, before doing anything, you have to log in to the Moodle web app.
+Unless you are using local files manually downloaded, before doing anything, you have to log in to the Moodle web app.
 
 The process if similar to ESSE3 logon, so you type:
 
@@ -501,7 +500,7 @@ Programmatically speaking, when you use the `onelog = TRUE` argument, SienaR loo
     login.moodle(onelog = TRUE)
     login.moodle(onelog = FALSE)
 
-and the second time copied ESSE3 credential will be used. Of course, you can use, `setCreds.moodle()` to change stored Moodle credentials. Indeed, the `onelog` argument would be clearer if written `copy__esse3_credentials`, however that would have been too long. 
+and the second time copied ESSE3 credential will be used. Of course, you can use, `setCreds.moodle()` to change stored Moodle credentials. Indeed, the `onelog` argument would be clearer if written `copy_esse3_credentials`, however that would have been too long. 
 
 
 Note that the onelog feature is not the same as the [Shibboleth Single Sign-on](https://www.shibboleth.net/products/) used by the  [plugin](#Shibboleth-Plugin) of the same name, since the latter  happens at the web app level. 
@@ -510,7 +509,10 @@ Note that the onelog feature is not the same as the [Shibboleth Single Sign-on](
 
 ### Getting the Moodle Response File
 
-To download the response file for a given quiz, you should provide the Moodle quiz ID.  To this regard,  visit the quiz home page or the quiz report page, and you will see that their addresses are like:
+
+There are several types of quiz questions in Moodle. When the quiz includes only multiple-choice questions, it is possible to download Moodle students' responses, grade them, and upload grades to ESSE3.   
+
+To download the response file for a given quiz, you should provide the Moodle quiz ID. To this regard,  visit the quiz home page or the quiz report page, and you will see that their addresses are like:
 
 
     ENDPOINT/mod/quiz/view.php?id=1234
@@ -518,22 +520,26 @@ To download the response file for a given quiz, you should provide the Moodle qu
 
 where `ENDPOINT` denotes your Moodle endpoint and `1234` denotes the quiz ID. 
 
+At this point, if you are not interested to automatic grading, for example if you want to just download and read student essays, then you can download the responses for the quiz ID 1234 with:
 
-You can then, download the responses for the quiz 1234 with:
-
-    getResponses(1234)
+    md.getResps(1234)
 
 
 As an alternative, you can copy-and-paste from the browser any address that contains the string `id=1234`, such as the above report page:
 
-
-    getResponses("ENDPOINT/mod/quiz/report.php?id=1234&mode=overview")
+    md.getResps("ENDPOINT/mod/quiz/report.php?id=1234&mode=overview")
 	
-	
-and the quiz ID will be recognised.
+and the quiz ID will be automatically recognised and extracted.
 
 
-The response file is  downloaded in the working directory, which you have set before,  as `responses.csv`, and you can view it in Excel. 
+The response  file is  downloaded in the working directory, which you have set before,  as `moodle-responses.html`, and you can read it with your browser. 
+
+
+If the response file consists only of multiple-choice files and you want to automatically grade the quizzes, to download the quiz 1234, you replace `md.getResps()` with:
+
+    md.getGrades(1234)
+
+Again, the response file is  downloaded in the working directory, at this time,  as `moodle-grades.csv`, and you can view it in Excel. 
 
 Bear in mind that this is a real Comma Separated File (CSV), and, for some cultures, Excel uses semicolons in place of commas. In these instances, you have to apply well-known workarounds (which go beyond scope here). 
 
@@ -592,7 +598,7 @@ If the structure of your responses matches  this standard MCQ scheme, you can us
 
 To get a score per question, type:
 
-    scores()
+    md.scores()
 
 You obtain a grid with the student emails and the score for each question. By default, if the answer is correct, the score is 2, if it is wrong, the score is -1, if it was skipped, it is zero. So the output is similar to: 
 
@@ -612,16 +618,16 @@ This can be adjusted by setting the variables:
 
 In the schema above, there is no penalty for wrong answers and a correct one counts as 3. 
 
-The response file used by `scores()` is found in the working directory you have set, as `responses.csv`, and you have probably downloaded it automatically with `getResponses()`. If you want to use some other file, specify the absolute path with:
+The response file used by `md.scores()` is found in the working directory you have set, as `moodle-grades.csv`, and you have probably downloaded it automatically with `md.getGrades()`. If you want to use some other file, specify the absolute path with:
 
-    scores(csvpath = "path to your file.csv")
+    md.scores(csvpath = "path to your file.csv")
 
 The usual  [path rules](#Specifying-File-and-Directory-Paths) apply to `"path to your file.csv"`. 
 
 Beyond printing the  score grid to the console, this is also saved in CSV format as `mscores.csv` in the working directory. 
 If you do not want to print and save results, but simply store the results in a variable, for further analysis, use: 
 
-    myscores <- scores(save = FALSE)
+    myscores <- md.scores(save = FALSE)
 
 Note that there is currently no option to change the saves file path, but tif you really need this, you can do it yourself with: 
 
@@ -631,9 +637,9 @@ Above, you pass to the renaming function, first, the old absolute path and, seco
 
 The function:
 
-    grades() 
+    md.grader() 
 		
-runs `scores()` again, without generating files, and sums all questions' scores to get the final student grades (we assume 'final'  for simplicity).  It also adds a good/bad column with the total correct and wrong question answered by each student. So the output is similar to:
+runs `md.scores()` again, without generating files, and sums all questions' scores to get the final student grades (we assume 'final'  for simplicity).  It also adds a good/bad column with the total correct and wrong question answered by each student. So the output is similar to:
 
 
                          email goodbad grade
@@ -644,15 +650,15 @@ runs `scores()` again, without generating files, and sums all questions' scores 
     Grades saved to *******************/grades.csv
 
 
-Just like for `scores()`, the grades are  printed to the console and saved in CSV format as `grades.csv` in the working directory. 
-Still similarly to `scores()`, you can pass the arguments `csvpath` and `save` to control the function input and output files.
+Just like for `md.scores()`, the grades are  printed to the console and saved in CSV format as `grades.csv` in the working directory. 
+Still similarly to `md.scores()`, you can pass the arguments `csvpath` and `save` to control the function input and output files.
 
-Finally, `grader.credits()` applies a credit weighting scheme. Assume that students participating in a test might have the right to different academic credits, perhaps because they belong to different programs or have already gained some credits. Then we can give the students with fewer credits to achieve fewer questions to answer. Of course,  this would result in a lower quiz grade and we have to reweigh it up in proportion to credits.  
+Finally, `md.grader.credits()` applies a credit weighting scheme. Assume that students participating in a test might have the right to different academic credits, perhaps because they belong to different programs or have already gained some credits. Then we can give the students with fewer credits to achieve fewer questions to answer. Of course,  this would result in a lower quiz grade and we have to reweigh it up in proportion to credits.  
 If the highest credits possible are 10, then a  grade 24 is actually 24 for a 10-credit student, but, for an 8-credit student (who  is tasked to answer only 4/5 of the given questions), the grade is reweighted by the factor 10/8, which yields 30. 
 
 To make this possible, SienaR connects to ESSE3 and looks for student credits, while we should pass the maximum possible credits  to allow rescaling. In fact, it could happen that, for the current sitting, there is nobody to whom the top credits are attributed. Given the example above, this would be:
 
-    grader.credits(maxcredits = 10)
+    md.grader.credits(maxcredits = 10)
 
 which produces an output similar to the following:
 
@@ -669,18 +675,18 @@ which produces an output similar to the following:
 The last column, `grade`,  is now the weighted grade;  the `mark` column is the former unweighted grade. 
 
 
-An important thing to note is that you have to set the current course and sitting schedule, by means of `setCourse()` and `setSched()`, otherwise `grader.credits()` does not know where to look for. If you already did this before, you might want to re-check current values with `getCurrent()`. 
+An important thing to note is that you have to set the current course and sitting schedule, by means of `setCourse()` and `setSched()`, otherwise `md.grader.credits()` does not know where to look for. If you already did this before, you might want to re-check current values with `getCurrent()`. 
 
-`grader.credits()` supports the usual  `csvpath` and  `save` arguments. As regards the latter,  `grader.credits()` produces by default the same `grades.csv` as `grader()` overwriting the existing one. This is so because  `grader.credits()` output is a superset of `grader()`, where you have both the weighted and the unweighted grade, but you can rename the old score file, as shown above, to avoid it being overwritten. 
+`md.grader.credits()` supports the usual  `csvpath` and  `save` arguments. As regards the latter,  `md.grader.credits()` produces by default the same `grades.csv` as `md.grader()` overwriting the existing one. This is so because  `md.grader.credits()` output is a superset of `md.grader()`, where you have both the weighted and the unweighted grade, but you can rename the old score file, as shown above, to avoid it being overwritten. 
 
 You might also have noticed, from the output above, that there is another file created, named `studata.rds`. This file is in the R own data format and, if you know the R language,  you can use it to make some further processing. 
 
 
-What if you want to publish the grades informally. I personally care about privacy, and this is where `anonymise()` comes to help. 
+What if you want to publish the grades informally. I personally care about privacy, and this is where `md.anonymise()` comes to help. 
 This function reparses the output of the grading functions, replacing sensitive student personal data with the SHA-1 hashes of  their student ID. So you type:
 
-    grades <- grader()
-    anonymise(grades)
+    grades <- md.grader()
+    md.anonymise(grades)
 
 and you get:
 
@@ -689,7 +695,7 @@ and you get:
     2 908f704ccaadfd86a74407d234c7bde30f2744fe    13/0    26
     3 118a43489e2f9ab66823eabdada672c906bb387f    12/0    24
 
-`grader()` can also be `grader.credits()`. 
+`md.grader()` can also be `md.grader.credits()`. 
 
 [comment1]: # ("123456", "123457", "123458")
 
@@ -699,7 +705,7 @@ You see the email address has been removed, while you the first column shows the
 Because student ID hashes are not resistant to a rule based attack, you might want to use (yet this could be overkilling to many):
 
 
-    anonymise(grades, tax = TRUE)
+    md.anonymise(grades, tax = TRUE)
 
 
 which yields:
@@ -729,14 +735,56 @@ Posting grades to ESSE3 is as simple as writing:
 
 As noted for other functions, to post to the proper scheduled sitting, you have to use  `setCourse()` and `setSched()`, and if you  did this a while ago, you'd  better check the current values with `getCurrent()`. 
 
-By default, `postGrades()` uses the `grades.csv` found in the working directory you have set. If you want to load an alternative CSV file, use:
+By default, `postGrades()` uses the `grades.csv` found in the working directory you have set and produced by `md.grader()` or 
+`md.grader.credits()` in the [Moodle Plugin](#moodle-plugin), or by [Testmacs](https://github.com/antoniofasano/testmacs).  
 
-    postGrades(csvpath = "path to your grades.csv")
+If you want to load an alternative CSV file still located in the working directory, use:
 
-The usual  [path rules](#Specifying-File-and-Directory-Paths) apply to `"path to your grades.csv"`. 
+    postGrades(csv.work = "name grade CSV in workdir")
+
+Note that Testmancs generates two grading files: `grades.txt` and `grades-ex.txt`, the first refers to multiple-choice question results, while the seconds adds also the computational exercises results. You normally want the second one. 
+
+If the CSV file you want to load is not located in the working directory, use its full path with::
+
+    postGrades(csv.full = "path to grade CSV")
+
+The usual  [path rules](#Specifying-File-and-Directory-Paths) apply to `"path to grade CSV"`. 
 
 Note that this function does not publish the results: for this, you have to click the designed  button on the web app, after verifying the grades were properly posted. Indeed, the function's objective is just to avoid the stress of manually selecting tons of drop down list to insert grades.  
+  
+Grade file generated by Testmacs does not take into account course credits, just like `md.grader.credits()` for Moodle Plugin, before uploading, you can use:
 
+    add.credits(maxcredits = 10)
+
+which will weigh grades by course credits, where `maxcredits` denotes the maximum possible credits attainable. For the rescaling procedures, see the description of `md.grader.credits()` in [Moodle Plugin](#moodle-plugin) section.
+
+To identify the grade file, `add.credits()` uses the same approch as `postGrades()`, that is it defaults to `grades.csv` found in the working directory, but you can use an alternative name or a full path with:
+
+    add.credits(maxcredits = 10, csv.work = "name grade CSV in workdir")
+    add.credits(maxcredits = 10, csv.full = "path to grade CSV")
+
+`add.credits()` generates two new grade files named `wgrades.csv` and `wgrades.txt` in the same directory of the input grade file 
+The CSV  file is suitable for uploading to ESSE3, the other one is more convenient for human reading.
+
+
+If you manage more courses under Testmacs, than you might want to upload all of them with a single command. In this case case you use Testmacs output directory, that  is the directory where the questions, results, and students' answers are generated for each course. The bulk verions of `postGrades()` is:
+
+    testmacs.postGrades("Path to Testmacs output directory", "grade file name")
+	
+The first argument is the  path to the Testmacs output directory and the second is the grade file. 
+
+There is a bulk verision of `add.credits()`, that is:
+
+
+    testmacs.add.credits(maxcredits = 10, "Path to Testmacs output directory", "grade file name")
+
+
+If you need to add credit weighting,  you normally call the two bulk functions like this:
+
+    testmacs.add.credits(10, "Path to Testmacs output directory", "grades-ex.csv")
+    testmacs.postGrades(     "Path to Testmacs output directory", "wgrades.csv")
+
+For each course, the first line takes the full grade CSVs (including exercise assessment) and generates their weighted versions as `wgrades.csv`, which are then uploaded to ESSE3.
 
 
 ## Shibboleth Plugin
@@ -806,14 +854,27 @@ Once you have caught the endpoints, the setup is automatic and to use the plugin
 
 You might want to look the general [plugin info section](#Information-About-Plugins), for more insights about this init function. 
 
-At this point, you have to replace:
+At this point, you have both ESSE3 and Moodle will use single sign-on. However, some organisations use SSO for some services and basic authentication for others. To use SSO only for 'esse3' or only 'moodle' use accordingly: 
+or 'both'. The
 
-    login.shibboleth()
-    login.moodle.shibboleth()
+    shib.auth('esse3')
+    shib.auth('moodle')
+	
+If you want to later go back to SSO for both services or set basic authentication (no SS0) use accordingly:
 
-for the equivalent basic auth functions, that is, `login()`, `login.moodle()`. Also, if you get a message prompting to log in or reset your credentials, use these functions. 
+    shib.auth('both')
+    shib.auth('none')
 
-Note that Shibboleth uses always ESSE3 credentials for both ESSE3 and Moodle login. As a result, `setCreds.moodle()`, which stores the prompts for and stores Moodle credentials, is totally worthless here, as Moodle credentials are never actually touched under Shibboleth. 
+`'both'` can even be omitted as it is default argument. 
+
+
+If you want to know the type of authentication currently configured use:
+
+    authtype()
+
+Of course, when using SSO for both ESSE3 and Moodle, it is worthless `setCreds.moodle()`.
+
+If you use SSO for ESSE3 and basic-auth for Moodle, you might find convenient to use `login.moodle(onelog = TRUE)`, assuming the credentials are the same.  
 
 
 

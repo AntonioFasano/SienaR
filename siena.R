@@ -41,6 +41,8 @@ SIENA$CurCourse <- NULL
 SIENA$CurSchedule <- NULL
 SIENA$CurSchedule.e3 <- NULL  # ESSE3 sitting ID 
 SIENA$mainpath <-  sys.calls()[[1]] [[2]]
+SIENA$Auth <- list(Esse3 = "Basic Access Authentication")
+SIENA$LoginFnc <- ".login.basic" 
 
 #################################################################
 ##                          Libraries                          ##
@@ -55,7 +57,17 @@ library('stringr')
 ##                      Manage Credentials                      ##
 ##################################################################
 
+authtype <- function() {
+    G <- SIENA
+    message(paste(names(G$Auth), G$Auth, sep=": ", collapse = ". "), ".")
+}
+
 login <- function(){ # login to ESSE3
+    G <- SIENA    
+    do.call(G$LoginFnc, if(is.null(formals())) list() else as.list(sys.call())[-1])
+}
+
+.login.basic <- function(){ # login to ESSE3 with basic access authentication.
 
     G <- SIENA
     .internetOK()
@@ -143,6 +155,11 @@ checkLogin  <- function(resp, first=FALSE){
     url=paste0(baseurl, page, "?", paste(..., sep="&"))
     resp <- curl_fetch_memory(url, G$e3Handle)
     checkLogin(resp)
+    html <- read_html(resp$content)
+    if(!xml_length(xml_find_all(html, "//div[@class='l-header']")))
+        stop("There is a navigation error. \nThis can happen after the connection expires. To fix it,  select courses and schedules again.")
+
+    ## TODO .query always imply read_html(), better to call it here recycling previous call above
     rawToChar(resp$content)
 
 }
@@ -173,7 +190,7 @@ checkLogin  <- function(resp, first=FALSE){
     fstatus <- firstreq.hds[1]
     firstreq.status <- regmatches(fstatus, regexec("^HTTP/.+ ([[:digit:]]+) ", fstatus))[[1]][2]
 
-    ## In case ofa login problem (session expired), we get a 200 status code (no 50x nor 300x redirect to login page)
+    ## In case of a login problem (session expired), we get a 200 status code (no 50x nor 300x redirect to login page)
     if(grepl("20[[:digit:]]", firstreq.status))  checkLogin(resp)
         
     ## If we get a 50x we need to check the code logic. Sometimes a getSchedules() before the post will do.  
@@ -637,23 +654,62 @@ getSummary <- function( # Enrolled students for each course and for first availa
 ##                           Grading                           ##
 #################################################################
 
-postGrades <- function(csvpath = NULL) { # Post grade from csv data.frame using matching email
-### grade.R sets a NA grade for missing exam-IDs, which means a failed exam (INSUFFICENTE), mapped as 0 by ESSE3 
-### CSV format: "given-name","family-name","student-id","student-birth","seat-ex-file","exam-id","grade"
-### In TESTMACS "student-id" is the email.
+
+testmacs.postGrades <- function(# Find and post Testmacs grade CSVs
+                       testmacs.dir, # Tesmacs output dir with course answers, results etc. 
+                       gradescsv     # file name of the CSV file with grades 
+                       ){
 
     G <- SIENA
+    
+    ## Check we are logged and set course and session
+    if(is.null(G$e3Handle)) stop("Please, login().")  
+    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
+    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    
+    ## Get Testmacs results
+    testmacs <- .testmacs.results(testmacs.dir, gradescsv)
 
-    ## read CSV file to post
-    if(is.null(csvpath)) csvpath <- file.path(G$workdir, "grades.csv")
-    if(!file.exists(csvpath)) stop("I can't find the response file\n", normalizePath(csvpath, mustWork = FALSE))   
-    csv <- read.csv(csvpath, check.names=FALSE)
+    ## Upload grades
+    x <- lapply(testmacs, function(course){
+ browser()     
+        message("Reading grades for ", course['name'])
+        if(!file.exists(course['file'])) stop("Unable to find grade file\n", course['file'])
+        message("Uploading grades to ", course['name'])
+        postGrades(csv.full = course['file'])
+    })
+}
+
+postGrades <- function(# Post grade from csv data.frame using matching email
+                       csv.work = "grades.csv", # results file name in SIENA$workdir
+                       csv.full = NULL         # results full path, alternative to csv.work. 
+                       ){ 
+### If not NULL, csv.full has priority over csv.work.
+### grade.R sets a NA grade for missing exam-IDs, which means a failed exam (INSUFFICENTE), mapped as 0 by ESSE3 
+### CSV format: "given-name","family-name","student-id","student-birth","seat-ex-file","exam-id","grade"
+### The student.id column needs to be the ESSE3 student email
+
+
+    G <- SIENA
     
     ## Check we are logged and set course and session
     if(is.null(G$e3Handle)) stop("Please, login().")  
     if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
     if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
 
+
+    ## Get grades
+    if(is.null(csv.full)) {
+        if(!dir.exists(G$workdir)) stop("Unable to find the global workdir\n", G$workdir)
+        workdir <- path(G$workdir)
+    }       
+    csvfile <- if(!is.null(csv.full)) csv.full
+               else  file.path(workdir, csv.work)
+    if(!file.exists(csvfile)) stop("Unable to find grade file\n", csvfile)
+    workdir <- dirname(csvfile)
+    csv <- read.csv(csvfile)
+
+    
     ## Inform and wait for slow connections
     examDateEU <- G$Schedules[G$CurSchedule, 'dateEU']
     message(sprintf("In 5 seconds, grading %s on %s", G$Courses[G$CurCourse, "Course"], examDateEU))
@@ -666,18 +722,21 @@ postGrades <- function(csvpath = NULL) { # Post grade from csv data.frame using 
     ## Get ESSE3 student data (e.g. emails)
     essedata <- getSched.studs()
 
-    ## Check student emails in test data
-    miss.emails <- sum(csv$email == "NIL")
-    if(miss.emails > 0){
-        print(paste(miss.emails, "missing email(s) for", G$Courses[G$CurCourse, "Course"], ":" ))
-        print( csv[csv$email == "NIL", ][1:2], print.gap=5)
-        warning(miss.emails, " missing email(s) for ", G$Courses[G$CurCourse, "Course"])
+    ## Check bad given emails
+#    miss.emails <- sum(csv$email == "NIL")
+#    if(miss.emails > 0){
+#        print(paste(miss.emails, "missing email(s) for", G$Courses[G$CurCourse, "Course"], ":" ))
+#        print( csv[csv$email == "NIL", ][1:2], print.gap=5)
+#        warning(miss.emails, " missing email(s) for ", G$Courses[G$CurCourse, "Course"])
+# 
+#    }
 
-    }
-     
+    given.emails.bad <- csv$student.id[ ! tolower(csv$student.id) %in% essedata$student.email ] 
+    if(length(given.emails.bad)) warning("Wrong emails or not enrolled: ", paste(given.emails.bad, collapse = ", "))
+
     ## Get grades when email available
     grades <- sapply(essedata$student.email, function(essemail){
-        pos <- grep(essemail, csv$email)
+        pos <- grep(essemail, csv$student.id, ignore.case = TRUE)
         if(length(pos)) csv[pos , "grade"]  else "NULL"
     })
        
@@ -685,7 +744,7 @@ postGrades <- function(csvpath = NULL) { # Post grade from csv data.frame using 
     ## If an email from ESSE3 is not in the graded emails, then the student was absent (ASSENTE)
     absents <- grades == "NULL"
 
-    ## grade.R sets a NA grade for missing exam-IDs
+    ## grade.R sets a NA grade for missing exam-IDs  ### obsolete now, ID is a compulsory field! Remove 
     incompletes <- is.na(grades)
 
     ## Numerical filters
@@ -766,12 +825,13 @@ postGrades <- function(csvpath = NULL) { # Post grade from csv data.frame using 
         } else {
             message(sprintf("Posted grades for %s on %s\nPlease. check via web app.",
                             G$Courses[G$CurCourse, "Course"], examDateEU))
-            if(miss.emails > 0)
-                message("but ", miss.emails, " missing email(s) will appear as absent student(s)")
+            if(length(given.emails.bad))
+                message("but ", length(given.emails.bad), " missing email(s) will appear as absent student(s)")
             break
         }
-    }        
+    }
 }
+
 
 cmp_csvesse3 <- function( ## Compare item in grade tab with esse3 tab and look for student ID
                          item,     # i-th row on grade tab
@@ -799,6 +859,122 @@ cmp_csvesse3 <- function( ## Compare item in grade tab with esse3 tab and look f
     list(studid=studid, notfound=notfound, conflict=conflict)
 }
 
+testmacs.add.credits <- function(# Find Testmacs grade CSVs and add ESSE3 course credit weights
+                                 maxcredits,   # the maximum number of credits possible for the course 
+                                 testmacs.dir, # Tesmacs output dir with course answers, results etc. 
+                                 gradescsv     # file name of the CSV file with grades to normalise 
+                       ){
+### See add.credits for info on weighting 
+
+    G <- SIENA
+    
+    ## Check we are logged and set course and session
+    if(is.null(G$e3Handle)) stop("Please, login().")  
+    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
+    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    
+    ## Get Testmacs results
+    testmacs <- .testmacs.results(testmacs.dir, gradescsv)
+
+    ## Add credit weights
+    x <- lapply(testmacs, function(course){
+        message("Reading grades for ", course['name'])
+        if(!file.exists(course['file'])) stop("Unable to find grade file\n", course['file'])
+        message("Adding credit weights to ", course['name'])
+        add.credits(maxcredits, csv.full = course['file'])
+    })
+}
+
+add.credits <- function( # Add ESSE3 course credit weights to a Testmacs results CSV
+                        maxcredits,              # the maximum number of credits possible for the course 
+                        csv.work = "grades.csv", # results file name in SIENA$workdir
+                        csv.full = NULL,         # results full path, alternative to csv.work. 
+                        save = TRUE              # Save weighted grades to wgrades.csv and  wgrades.txt 
+                        ){
+### Each grade is multiplied by M/C, where C are student's credits and M are the maximum possible credits 
+### In the CSV the student.id column needs to be the ESSE3 student email
+### If not NULL, csv.full has priority over csv.work.
+    
+    G <- SIENA
+
+    ## Check we are logged and set course and session
+    if(is.null(G$e3Handle)) stop("Please, login().")  
+    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
+    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+
+    ## Check args
+    if(missing(maxcredits))
+        stop("You are missing the argument 'maxcredits': the maximum number of credits possible for the course.")
+
+    ## Get standard grades
+    if(is.null(csv.full)) {
+        if(!dir.exists(G$workdir)) stop("Unable to find the global workdir\n", G$workdir)
+        workdir <- path(G$workdir)
+    }       
+    csvfile <- if(!is.null(csv.full)) csv.full
+               else  file.path(workdir, csv.work)
+    if(!file.exists(csvfile)) stop("Unable to find\n", csvfile)
+    workdir <- dirname(csvfile)
+    grades <- read.csv(csvfile)
+    
+    ## Get ESSE3 data with credits 
+    esse3data <- getSched.studs()
+    e3file <- file.path(workdir, "studata.rds")
+    saveRDS(esse3data, e3file)
+    ## esse3data <- readRDS(e3file)
+    message("ESSE3 data saved to ", e3file, "\n")
+
+    ## Join by results.csv and ESS3 mail 
+    given.emails <- tolower(grades$student.id)
+    rownames(grades) <- given.emails
+    esse3.emails <- tolower(esse3data$student.email)
+    e3match <- esse3data[esse3.emails %in% given.emails, ] # only ESSE3 studs in results' CSV
+    rownames(e3match) <- e3match$student.email
+    given.emails.good <- esse3.emails[esse3.emails %in% given.emails]
+    given.emails.bad <- given.emails[! given.emails %in% given.emails.good]
+    if(length(given.emails.bad)) warning("Wrong emails or not enrolled: ", paste(given.emails.bad, collapse = ", "))
+
+    ## Change grade name to standard-grade
+    nms <- names(grades)
+    nms[which("grade" == nms)] <- "sgrade"
+    names(grades) <- nms
+
+    ## Add credits and weighted grade
+    grades$credit <- NA
+    grades[given.emails.good, "credit"] <- e3match[given.emails.good, ]$credits
+    weights <- maxcredits/as.numeric(grades$credit)
+    grades$grade <- grades$sgrade * weights
+    
+    ## Save when this is the final output
+    if(save){
+        grfile.csv <- file.path(workdir, "wgrades.csv")
+        grfile.txt <- file.path(workdir, "wgrades.txt")
+        write.csv(grades, grfile.csv, row.names=FALSE)
+        write.table(grades, grfile.txt, sep=" ", row.names=FALSE)
+        print(grades)
+        message("\nGrades saved to \n", grfile.csv, "\n", grfile.txt)
+        invisible(grades) # invisibly to avoid adding message
+    } else grades
+}
+
+.testmacs.results <- function( # Get Testmacs grade CSVs
+                              testmacs.dir, # Tesmacs output dir with course answers, results etc. 
+                              gradescsv     # file name to find for the CSV file with grades (upload or normalise)
+                       ){
+### The path to gradescsv is <testmacs.dir>/<course name>-result/<gradescsv>
+
+    if(!dir.exists(testmacs.dir)) stop("Unable to find the Testmacs dir\n", testmacs.dir)
+    testmacs.dir <- path(testmacs.dir)
+    resglob <- file.path(testmacs.dir, "*-results")
+    resdirs <- Sys.glob(resglob)
+    if(!length(resdirs)) stop("Unable to find any result dir in\n", testmacs.dir)
+
+    lapply(resdirs, function(resdir){
+        c(dir = resdir,
+          file = file.path(resdir, gradescsv),
+          name = basename(sub("-results$", "",  resdirs)))
+    }) 
+}
 
 ##################################################################
 ##                           Sittings                           ##
@@ -881,7 +1057,7 @@ addCommittee <- function( # Add a new committee for given course exam date, and 
                          course,  # well spelled string, but with whatever formatting, or course entry number
                          examdate,
                          committee,  # e.g. "John Doe, John-Robert Mac-Neil, 123456" (see .parseMember() for member strings) 
-                         sittingID = NULL # Returned by addSitting() or findSittingID(). If missing, the latter is used 
+                         sittingID = NULL # Auto-found with findSittingID or the value returned while using addSitting()
                          ){
 
 ### `committee` format is a comma-separated string: <member 1>, <member 2>, <member 3>
@@ -906,7 +1082,9 @@ addCommittee <- function( # Add a new committee for given course exam date, and 
 
 
 .addCommittee.memb <- function(member, course, examdate, sittingID){ # Workhorse for addCommittee()
-    
+
+    G <- SIENA
+
     membsrch <- findMember(course, examdate,  member, sittingID)
     if(any(is.na(membsrch))) stop()
 
@@ -944,7 +1122,7 @@ findMember <- function( # Find an instructor which can be added to a committee o
                        course,  # well spelled string, but with whatever formatting, or course entry number
                        examdate,
                        member,  # 'John Doe' or  'John-Robert Mac-Neil' or '123456' (see below for details) 
-                       sittingID = NULL # Auto-found or returned while using addSitting()
+                       sittingID = NULL # Auto-found with findSittingID or the value returned while using addSitting()
                        ){
 ### Invisibly return the person checkbox code in the search results (needed by .addCommittee.memb) or NA with failure
 
@@ -952,7 +1130,7 @@ findMember <- function( # Find an instructor which can be added to a committee o
     G <- SIENA
     
     ## Parse committee string
-     member <- .parseMember(member)
+    member <- .parseMember(member)
     
     ## Find and set current course
     setCourse.infer(course)
@@ -1079,10 +1257,13 @@ findCommittee <- function( # Find an exam committee members on given date, and p
 }
 
 
-findSittingID  <- function(examdate, compareID){ # Given a sitting date for the current course, find its internal sitting ID.
+findSittingID <- function(examdate, compareID = NULL){ # Given a sitting date for the current course, find its internal sitting ID.
 ### Stop a) if none or many dates are found; b) if the found ID != compareID, unless it is NULL. 
 
     G <- SIENA
+
+    if(is.null(G$CurCourse)) stop("Please, run getCourses() and  setCourse() first")
+
     
     ## English/Italian date
     examdate  <- format(examdate,  "%d/%m/%Y")
@@ -1103,12 +1284,10 @@ findSittingID  <- function(examdate, compareID){ # Given a sitting date for the 
     tab <- .htmlTab2Array(sched.tab, toText = FALSE)
     acell <- tab[[rowpos]][[1]] # first cell in matching row
     schedhref <- xml_attr(xml_find_all(acell , "./a"), "href")
-                                        #sittingID <-
     foundID <- regmatches(schedhref, regexec("APP_ID=([[:digit:]]+)", schedhref))[[1]][2]
 
-
     if(!is.null(compareID) && compareID != foundID)
-        stop("You asked for ", G$Courses$Course[G$CurCourse], ", sitting ", sittingID, " on ", examdate,
+        stop("You asked for ", G$Courses$Course[G$CurCourse], ", with sitting ID", compareID, " on ", examdate,
              ",\nbut I can't found it.")
     foundID 
 }
@@ -1121,16 +1300,16 @@ findSittingID  <- function(examdate, compareID){ # Given a sitting date for the 
 #################################################################
 
 ### Plugin scripts have an ID, to make sure local version match remote ones.
-### If you modify myplugin, use .signPlugin(myplugin) and update myplugin() with the new ID string
+### If you modify myplugin, use .signPlugin("myplugin") and update myplugin() with the new ID string
 
 moodle <- function(){ # load the Moodle plugin
-    idstring <- "K&x2kvmHdDGyQ62tZN$TmuoeGJgVjzTCqH7tl2HL3#Sdhc@njS&h3K@P"
+    idstring <- "57673a680a26066b38370f066c2a5e373f182870712b61174d6210512b"
     mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/moodle.R"    
     .loadPlugin("moodle", idstring, mscript.git)
 }
 
 shibboleth <- function(){ # load the Shibboleth plugin
-    idstring <- "237f151825685a480373724d0f2d4b583078675167553d3823114f302e"
+    idstring <- "2244356b1c2d352a2b5d54590456680e2d567b0a4367380b3776286011"
     mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/shibboleth.R"
     .loadPlugin("shibboleth", idstring, mscript.git)
 }
@@ -1172,7 +1351,7 @@ shibboleth <- function(){ # load the Shibboleth plugin
     idstring <- .idstring(script.txt)
     comm <- paste(c("### ", as.character(idstring)), collapse = "")
     new.script <- c(script.txt, comm)
-    ans <- readline(paste0("Overwrite ", basename, "? (Y/any) "))
+    ans <- readline(paste0("Update ", basename, " ID string? (Y/any) "))
     if(ans == "Y") writeLines(new.script, script.path) 
     message("ID string in ", basename, " overwritten.\nManually update idstring in ",
             paste0(tools::file_path_sans_ext(basename), "() with:\n"),
@@ -1335,3 +1514,30 @@ version <- function(changes = FALSE){
                     vec) which(sapply(vec, is.na))[1]
 
 
+#################################################################
+##                         File system                         ##
+#################################################################
+
+path <- function(..., ext = ""){
+    
+    win <- .Platform$file.sep == "\\"
+ 
+    ## Join as Unix 
+    p <- paste(..., sep = "/")
+ 
+    ## Unixify
+    if(win)  p <- gsub("\\\\", "/", p)
+ 
+    ## Uniquify 
+    p <- gsub("/+", "/", p)
+ 
+    ## Add ext
+    if(nzchar(ext)) p <- paste(p, ext, sep=".")
+ 
+    ## No trail slash 
+    p <- sub("/$", "", p)
+ 
+    ## Back to win, if needed  
+    if(win) gsub("/", "\\\\", p)  else p
+ 
+}

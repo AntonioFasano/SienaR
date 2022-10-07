@@ -1,11 +1,11 @@
-## Download Moodle responses (or use local CSV), generate grades and upload to ESSE3, via email join.
+## Download Moodle grades (or use local CSV), generate grades and upload to ESSE3, via email join.
 ## The Moodle file is expected to have a positive/negative value for correct answers or a dash.
 ## Credits weighted grades can be obtained via ESSE3 credits. 
 
 ## Typical workflows: 
-## moodle() > login.moodle() >  getResponses(quizID) > scores() >  grader()
-## grader.credits(maxPossible)  # weight with credits 
-## anonymise(grader(save = FALSE))
+## moodle() > login.moodle() >  md.getGrades(quizID) > md.scores() >  md.grader()
+## md.grader.credits(maxPossible)  # weight with credits 
+## md.anonymise(grader(save = FALSE))
 ## resps <- read.csv(file.path(SIENA$workdir, "grades.csv")) ; postGrades(resps)
 
 if(!exists("SIENA")) stop("This script is a plugin for the main Siena script. Run the latter, before this.")
@@ -17,7 +17,15 @@ SIENA$goodans  <-  2  # correct answer
 SIENA$badans   <- -1  # wrong answer. Set to 0 for no penalty
 SIENA$skipans  <-  0  # skipped answer
 
-login.moodle  <- function(onelog = FALSE){ # login to Moodle 
+login.moodle <- function(onelog = FALSE){ # login to Moodle
+    G <- SIENA
+    if(is.null(G$Auth$Moodle)) G$Auth$Moodle <- "Basic Access Authentication"
+    if(is.null(G$LoginMoodleFnc)) G$LoginMoodleFnc <- ".login.moodle.basic"    
+    do.call(G$LoginMoodleFnc, if(is.null(formals())) list() else as.list(sys.call())[-1] )
+}
+
+.login.moodle.basic <- function(onelog = FALSE){ # login to Moodle with basic access authentication.
+### If there are no prestored Moodle credentials and onelog is TRUE, copy ESSE3 credentials over Moodle's and use those
 
     G <- SIENA
     .internetOK()
@@ -87,7 +95,7 @@ checkLogin.moodle <-  function(resp, first=FALSE){
         if(first) {
             stop("Endpoint or credentials might be wrong. Check and run setCreds.moodle()")
         } else {
-            stop("Connection expired. Use login()")
+            stop("Connection expired. Use login.moodle()")
         }
     }
 }
@@ -107,8 +115,54 @@ checkLogin.moodle <-  function(resp, first=FALSE){
                   message("The workdir is:\n", normalizePath(workdir), "\n")
 }
 
-getResponses <- function( # Download response CSV in SIENA$workdir
+md.getResps <- function( # Download Moodle response file as HTML
                           report # Moodle response report URL, as a string, or quiz ID, as a string or number
+                         ){
+
+    G <- SIENA
+    
+    ## Validate func arg
+    if(missing(report)) stop("This function wants the quiz report URL or ID.")
+    isurl <- grepl("^http", report) 
+    isID <- suppressWarnings(!is.na(as.numeric(report)))
+    if(!isurl & !isID) stop(report, "\ndoes not seem a URL nor a report ID")
+
+    ## Create output dir
+    .makeOutdir()
+    
+    ## Extract quiz ID
+    quizID <- if(isurl) {
+                   m <- regexec("&id=([0-9]+)", report)
+                   regmatches(report, m)[[1]][2]
+              } else as.character(report)
+
+    ## Make download url
+    repurl <- paste0(G$moodleurl, "/mod/quiz/report.php?download=html&mode=responses")
+    attempts <- "&attempts=enrolled_with" # that is: all users who have attempted the quiz  
+    quizID.par <- paste0("&id=", quizID)
+    repurl <-  paste0(repurl, attempts, quizID.par)
+    outfile  <-  file.path(G$workdir, "moodle-responses.html")
+    .internetOK()
+
+    message("Downloading Moodle grade CSV to:\n", outfile, "\n")
+    curl_download(repurl, outfile, handle = G$moodHandle)
+
+    ## Empty file?
+    if(!nzchar(readLines(outfile, warn = FALSE)[1]))
+        stop("The Moodle grade file was downloaded to\n ", outfile, "\n but it is empty.")
+ 
+    ## If connection expired, you get status 200 and an HTML file with the errors 
+    first <- readLines(outfile, n=1)
+    error <- !grepl("responses$",  xml_text(xml_find_first(read_html(outfile), "./head/title")))
+    if(error) {
+        checkLogin.moodle(curl_fetch_memory(G$moodleurl, G$moodHandle))
+        stop("A problem occurred while downloading Moodle grade file", #  checkLogin should stop us before this
+             "\nYou may check your report URL/ID or connection and try another attempt.")
+    }
+}
+
+md.getGrades <- function( # Download Moodle grade CSV in SIENA$workdir
+                          report # Moodle grade report URL, as a string, or quiz ID, as a string or number
                          ){
 
     G <- SIENA
@@ -133,46 +187,46 @@ getResponses <- function( # Download response CSV in SIENA$workdir
     attempts <- "&attempts=enrolled_with" # that is: all users who have attempted the quiz  
     quizID.par <- paste0("&id=", quizID)
     repurl <-  paste0(repurl, attempts, quizID.par)
-    outfile  <-  file.path(G$workdir, "responses.csv")
+    outfile  <-  file.path(G$workdir, "moodle-grades.csv")
     .internetOK()
 
-    message("Downloading response CSV to:\n", outfile, "\n")
+    message("Downloading Moodle grade CSV to:\n", outfile, "\n")
     curl_download(repurl, outfile, handle = G$moodHandle)
 
     ## Empty file?
     if(!nzchar(readLines(outfile, warn = FALSE)[1]))
-        stop("The response file was downloaded to\n ", outfile, "\n but it is empty.")
+        stop("The Moodle grade file was downloaded to\n ", outfile, "\n but it is empty.")
  
     ## If connection expired, you get status 200 and an HTML file with the errors 
     first <- readLines(outfile, n=1)
     error <- isTRUE(grepl("<!DOCTYPE html>", first)) # assuming Internet OK, if session is gone, we just get an HTML file
     if(error) {
         checkLogin.moodle(curl_fetch_memory(G$moodleurl, G$moodHandle))
-        stop("A problem occurred while downloading response file", #  checkLogin should stop us before this
+        stop("A problem occurred while downloading Moodle grade file", #  checkLogin should stop us before this
              "\nYou may check your report URL/ID or connection and try another attempt.")
     }
 }
 
-.readResp <- function( # Read CSV response file
-                     csvpath = NULL # if NULL use responses.csv in in SIENA$workdir
+.md.readGrades.csv <- function( # Read Moodle grade CSV
+                     csvpath = NULL # if NULL use moodle-grades.csv in in SIENA$workdir
                      ){
 
     G <- SIENA
 
-    if(is.null(csvpath)) csvpath <-  file.path(G$workdir, "responses.csv")
-    if(!file.exists(csvpath)) stop("I can't file the response file\n", normalizePath(csvpath, mustWork = FALSE))
+    if(is.null(csvpath)) csvpath <-  file.path(G$workdir, "moodle-grades.csv")
+    if(!file.exists(csvpath)) stop("I can't file the Moodle grade file\n", normalizePath(csvpath, mustWork = FALSE))
     
     read.csv(csvpath, check.names=FALSE)
 }
 
-scores <- function( # Import and reweight Moodle responses based on goodans, badans, skipans weights in SIENA
-                   csvpath = NULL, # if NULL use responses.csv in in SIENA$workdir
-                   save = TRUE     # Save to space separated file 
-                   ){
+md.scores <- function( # Import and reweight Moodle grades based on goodans, badans, skipans weights in SIENA
+                      csvpath = NULL, # if NULL use moodle-grades.csv in in SIENA$workdir
+                      save = TRUE     # Save to space separated file 
+                      ){
 
     G <- SIENA
 
-    csvresp <- .readResp(csvpath)
+    csvresp <- .md.readGrades.csv(csvpath)
 
     ## Moodle scores' grid in a char matrix 
     anames <- grep("Q. 1 ", names(csvresp))
@@ -201,11 +255,11 @@ scores <- function( # Import and reweight Moodle responses based on goodans, bad
 
 }
 
-grader <- function( # Import Moodle responses, reweight by goodans, badans, skipans weights in SIENA and grade
-                   csvpath = NULL, # if NULL use responses.csv in in SIENA$workdir
+md.grader <- function( # Import Moodle grades, reweight by goodans, badans, skipans weights in SIENA and grade questions
+                   csvpath = NULL, # if NULL use moodle-grades.csv in in SIENA$workdir
                    save = TRUE     # Save to space separated file 
                    ){
-### See scores() individual response scores 
+### See md.scores() individual question scores 
 
     G <- SIENA
 
@@ -231,9 +285,9 @@ grader <- function( # Import Moodle responses, reweight by goodans, badans, skip
     } else grades
 }
 
-grader.credits <- function( # This is a version of grader() weighting grades by course credits
+md.grader.credits <- function( # This is a version of md.grader() weighting grades by course credits
                            maxcredits,      # the maximum number of credits possible for the course 
-                           csvpath = NULL, # if NULL use responses.csv in in SIENA$workdir
+                           csvpath = NULL, # if NULL use moodle-grades.csv in in SIENA$workdir
                            save = TRUE     # Save to space separated file 
                            ){
 ### Each grade is multiplied by M/C, where C are student's credits and M are the maxmum credits possible
@@ -249,7 +303,7 @@ grader.credits <- function( # This is a version of grader() weighting grades by 
         stop("You are missing the argument 'maxcredits': the maximum number of credits possible for the course.")
 
     ## Get standard grades 
-    sgrades <- grader(csvpath, save = FALSE)
+    sgrades <- md.grader(csvpath, save = FALSE)
 
     ## Get ESSE3 data with credits 
     esse3data <- getSched.studs()
@@ -281,10 +335,10 @@ grader.credits <- function( # This is a version of grader() weighting grades by 
 }
 
 
-anonymise <- function( # use SHA-1 hash of student-ID
-                      grades,         # output of grader() or grader.credits()
+md.anonymise <- function( # use SHA-1 hash of student-ID
+                      grades,         # output of md.grader() or md.grader.credits()
                       tax = FALSE,    # TRUE to replace ESSE3 tax code for student ID 
-                      csvpath = NULL, # if NULL use responses.csv in in SIENA$workdir
+                      csvpath = NULL, # if NULL use moodle-grades.csv in in SIENA$workdir
                       save = TRUE     # Save to space separated file 
                       ){
         
@@ -401,4 +455,4 @@ findQuizID <- function(# Print all quizzes found for a given course ID, with rel
 
 
 ### Please do not touch the strng below  
-### K&x2kvmHdDGyQ62tZN$TmuoeGJgVjzTCqH7tl2HL3#Sdhc@njS&h3K@P
+### 57673a680a26066b38370f066c2a5e373f182870712b61174d6210512b

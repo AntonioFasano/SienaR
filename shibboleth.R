@@ -1,7 +1,45 @@
 ## When the Shibboleth Single Sign-on is used, login.shibboleth() and login.moodle.shibboleth(),
 ## replace the equivalent basic auth functions. So, if prompted to use login(), use these ones.
 
-login.shibboleth <- function(){ # Login to ESSE3 via Shibboleth
+shibboleth.init <- function(){
+    G <- SIENA
+
+    G$Auth$Esse3     <- "Shibboleth Authentication"
+    G$LoginFnc       <- ".login.shibboleth"
+    G$Auth$Moodle    <- "Shibboleth Authentication"
+    G$LoginMoodleFnc <- ".login.moodle.shibboleth"
+}
+shibboleth.init()
+
+shib.auth <- function(what){ # what can be 'both', 'esse3', 'moodle'
+    G <- SIENA
+
+    G$Auth$Esse3     <- "Basic Access Authentication"
+    G$Auth$Moodle    <- "Basic Access Authentication"
+    G$LoginFnc       <- ".login.basic"
+    G$LoginMoodleFnc <- ".login.moodle.basic"
+    
+    if(what == 'esse3') {
+        G$Auth$Esse3     <- "Shibboleth Authentication"
+        G$LoginFnc       <- ".login.shibboleth"
+    }
+    else if(what == 'moodle') {
+        G$Auth$Moodle    <- "Shibboleth Authentication"
+        G$LoginMoodleFnc <- ".login.moodle.shibboleth"
+    }
+    else if(what == 'both') {
+        shib.set('esse3')        
+        shib.set('moodle')        
+    }
+    else if(what == 'none') {
+
+    }
+
+    else
+        stop("Argument can be 'esse3', 'moodle', or 'both'.")
+}
+
+.login.shibboleth <- function(){ # Login to ESSE3 via Shibboleth
 
     G <- SIENA
     .internetOK()
@@ -66,7 +104,7 @@ login.shibboleth <- function(){ # Login to ESSE3 via Shibboleth
     G$e3Handle <- h
 }
 
-login.moodle.shibboleth <- function(){ # Login to Moodle via Shibboleth
+.login.moodle.shibboleth <- function(){ # Login to Moodle via Shibboleth
 ### SSO is not used, just a second curl connection with the same creds set by setCreds.shibboleth()
     
     G <- SIENA
@@ -142,4 +180,4 @@ login.moodle.shibboleth <- function(){ # Login to Moodle via Shibboleth
 
 
 ### Please do not touch the strng below
-### 237f151825685a480373724d0f2d4b583078675167553d3823114f302e
+### 2244356b1c2d352a2b5d54590456680e2d567b0a4367380b3776286011

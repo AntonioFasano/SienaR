@@ -1,3 +1,16 @@
+# v0.2.0 2022-10-07
+      
+- `testmacs.add.credits()` and `testmacs.postGrades()` can add course credit weights and post grades of all Testmacs courses.
+- `add.credits()` add course credit weights to a Testmacs grade file.
+- `postGrades()` CSV argument can now be `csv.full` or `csv.work`. They stand for full path to file ore relative to the global workdir `SIENA$workdir`.
+- Most Moodle functions have now the "md." suffix for easy autocompleate.
+- Added `md.getResps()` to download generic Moodle response files, not intended for auto-grading, and `getResponses()` is now `md.getGrades()`. 
+- Simplified Shibboleth, based on new internal functions `.login.basic()`, `.login.moodle.basic()`, `.login.shibboleth()`, `.login.moodle.shibboleth()`, 
+- `authtype()` gives current authotisation type.
+- `defaultAuth()` restores default authentication type, currently basic authentication  
+- `findSittingID()` gives a better message in case the `compareID` is not matched. Also `compareID` defaults to NULL
+- `.addCommittee.memb()` fixed error in code controlling the success on the operations.
+
 # v0.1.3 2022-07-20
 
 - Added internal functions `.urlHost()`, `.urlIsAbsolute()` to manage URLs components.
