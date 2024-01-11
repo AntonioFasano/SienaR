@@ -55,52 +55,47 @@ shib.auth <- function(what){ # what can be 'both', 'esse3', 'moodle'
     creds.post <- paste0("j_username=",  curl_escape(credlst$user),
                          "&j_password=", curl_escape(credlst$pw),
                          "&_eventId_proceed=") # <- this empty field is necessary
-    creds.post  <-  charToRaw(creds.post)
-    
-    ## Esse3 shibboleth login url
-    e3logurl <- paste0(G$esse3url, "/auth/Logon.do?cod_lingua=eng") # will redir to SSO site
+
     h <- new_handle()
-  
-    ## Request login page. That will redirected to the SSO page (usually on a different site)
+    
+    ## Request Esse3 login page. That will redirect to Shibboleth SSO page (usually on a different subdomain)
     message('.', appendLF = FALSE)
-    resp <- curl_fetch_memory(e3logurl, h)
+    e3logurl <- paste0(G$esse3url, "/auth/Logon.do?cod_lingua=eng") # will redir to shibboleth SSO site
+    resp <- curl_fetch_memory(e3logurl, h) #1
 
     ## Find 'Continue' button and push it ('cause we have no scripts)  
     message('.', appendLF = FALSE)
     contBtn <- xml_find_all(read_html(rawToChar(resp$content)), "//form//noscript//input[@value='Continue']")
+    if(!length(contBtn)) stop("Unexpected result in step 1 of Shibboleth login")
     form <- xml_find_all(contBtn, "./ancestor::form")
-    resp <- .replayForm(form, resp, h)
+    resp <- .replayForm(form, resp, h)    #2
 
-    ## Detect credentials' form and post them 
+    ## Detect credential form and post them 
     message('.', appendLF = FALSE)
     username.fld <- xml_find_all(read_html(rawToChar(resp$content)), "//form//input[@id='username']") # or @name='j_username'
+    if(!length(username.fld)) stop("Unexpected result in step 2 of Shibboleth login")    
     form <- xml_find_all(username.fld, "./ancestor::form")
     submitLink <- xml_attr(form, "action")
     url <- paste0(.urlHost(resp$url), submitLink)
-    handle_setopt(h,  postfields = creds.post, followlocation = FALSE)
-    resp <- curl_fetch_memory(url, h)
-    if(!length(resp$content)) stop("\nCredentials might be wrong. Run setCreds()")###########3
+    postfields.opt <- list(post = TRUE, postfields = creds.post)
+    handle_setopt(h, .list = postfields.opt)  # was followlocation = FALSE
+    resp <- curl_fetch_memory(url, h)     #3
 
     ## Find 'Continue' button and push it ('cause we have no scripts)  
     message('.', appendLF = FALSE)
     contBtn <- xml_find_all(read_html(rawToChar(resp$content)), "//form//noscript//input[@value='Continue']")
+    if(!length(contBtn)) stop("Unexpected result in step 3 of Shibboleth login")
     form <- xml_find_all(contBtn, "./ancestor::form")
-    resp <- .replayForm(form, resp, h)
-        
-    ## Test Shibboleth and Esse3
-    if(!length(grep("_shibsession_", handle_cookies(h)$name))){
-        stop("\nI did not get expected cookies at ", logurl)
-    } else {
-        message("\nYou are now logged in to Shibboleth Single Sign-on.")
-    }
-    ## We not log to ESSE3 with Shibboleth cookies. We are redirected to ESSE3 home (AreaDocente.do)
-    message('...')
-    handle_setopt(h, followlocation = TRUE)
-    esse3resp <- curl_fetch_memory(e3logurl, h)  
-    checkLogin(esse3resp, first = TRUE)
+    resp <- .replayForm(form, resp, h)    #4
+
+    ## For debug
+    ## logout <- xml_attr(xml_find_all(read_html(rawToChar(resp$content)), "//a"), "href") |>
+    ##     grep("Logout.do", x =_, ignore.case = TRUE)
+    ## if(!length(logout)) stop("Unexpected result in step 4 of Shibboleth login")       
+    checkLogin(resp, first = TRUE)
 
     ## On success return handle
-    handle_setopt(h, followlocation = TRUE) # in case we change above
+    handle_setopt(h, followlocation = TRUE) # in case we changed above
     G$e3Handle <- h
 }
 

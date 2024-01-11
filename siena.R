@@ -181,7 +181,7 @@ checkLogin  <- function(resp, first=FALSE){
 
     handle_reset(G$e3Handle)
     if(encode) postfields <-  .encpostfields(postfields)  # encode as cURL --data-raw string     
-    options <- list(post = TRUE, postfields = postfields, postfieldsize = nchar(postfields), followlocation = FALSE)
+    options <- list(post = TRUE, postfields = postfields, followlocation = FALSE)
     handle_setopt(G$e3Handle, .list = options)    
     resp <- curl_fetch_memory(url, G$e3Handle)
 
@@ -266,7 +266,7 @@ checkLogin  <- function(resp, first=FALSE){
   vals[is.na(vals)] <- ""
   vals <- curl_escape(vals)
   postfields <-paste(paste(flds, vals, sep="="), collapse = "&")
-  postfields.opt <- list(post = TRUE, postfields = postfields, postfieldsize = nchar(postfields))
+  postfields.opt <- list(post = TRUE, postfields = postfields)  
   submitLink <- xml_attr(form, "action")
   url <- if(.urlIsAbsolute(submitLink)) submitLink else paste0(.urlHost(resp$url), submitLink)
   handle_setopt(handle, .list = postfields.opt)
@@ -295,8 +295,8 @@ getCourses <- function( # Get available courses, assign a sequential entry numbe
     #courses <- as.data.frame(t(sapply(course.tab, sapply, xml_text)))
     courses <- courses[-1, c(3,1,2)]
     names(courses) <- c("Entry", "Course", "Program")
-    courses$Program <- gsub(", D.M. 270/2004", "", courses$Program)
-    courses$Entry <- as.integer(as.factor(courses$Course))
+    courses$Program <- gsub(",.D.M. 270/2004", "", courses$Program)
+    courses$Entry <- as.integer(factor(courses$Course, unique(courses$Course)))
     if(prompt) {
         print(courses , row.names=FALSE)
         message("\nUse setCourse(Entry) to select one.\n")
@@ -363,8 +363,12 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
     ## Show
     if(prompt) {
         message(sprintf("Schedules for %s:", G$Courses[G$CurCourse, "Course"]))
-        print(data.frame(Schedules=scheds$dateEU, Entry=seq_along(scheds$dateEU)), row.names=FALSE)
-        message("\nUse setSched(entry) to select one.\n")
+        if(!nrow(scheds)) {
+            message("No scheduled exam found!")
+        } else {
+            print(data.frame(Schedules=scheds$dateEU, Entry=seq_along(scheds$dateEU)), row.names=FALSE)
+            message("\nUse setSched(entry) to select one.\n")
+        }
     } 
     invisible(scheds)    
 }
@@ -382,6 +386,8 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
     html <- read_html(schedules)
     scheds.htab <- xml_find_all(html, "//table[@class='detail_table']")
 
+    if(!length(scheds.htab)) return(data.frame(desc = "", esse3SchedID = "", datetime = as.POSIXct(0), dateEU = "", enrol.status = "", enrol.num = 0, enrol.green = TRUE, graded.status = "", graded.num = 0, graded.green = TRUE, recorded.status ="", recorded.num = 0, recorded.green = TRUE)[-1,])
+    
     ## Get table headers and body
     schedArray <- .htmlTab2Array(scheds.htab, toText = FALSE)
     headers <- schedArray[[1]]
@@ -862,7 +868,7 @@ cmp_csvesse3 <- function( ## Compare item in grade tab with esse3 tab and look f
 testmacs.add.credits <- function(# Find Testmacs grade CSVs and add ESSE3 course credit weights
                                  maxcredits,   # the maximum number of credits possible for the course 
                                  testmacs.dir, # Tesmacs output dir with course answers, results etc. 
-                                 gradescsv     # file name of the CSV file with grades to normalise 
+                                 gradescsv     # basename of the CSV file with grades to normalise 
                        ){
 ### See add.credits for info on weighting 
 
