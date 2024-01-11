@@ -678,8 +678,13 @@ testmacs.postGrades <- function(# Find and post Testmacs grade CSVs
 
     ## Upload grades
     x <- lapply(testmacs, function(course){
- browser()     
-        message("Reading grades for ", course['name'])
+browser()     
+        indir.name <- toupper(readLines(file.path(course['dir'], "official.txt")))
+        cur.name <- toupper(G$Courses$Course[G$CurCourse])
+        if(indir.name != cur.name)
+            stop("Current course is set to ", G$Courses$Course[G$CurCourse], ",\nbut course dir refers to ", indir.name,
+                    ".\nAdjust the former with setCourse() or the latter with testmacs.postGrades()")
+        message("Reading grades for ", course['name'], " = ", cur.name)
         if(!file.exists(course['file'])) stop("Unable to find grade file\n", course['file'])
         message("Uploading grades to ", course['name'])
         postGrades(csv.full = course['file'])
@@ -737,7 +742,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 # 
 #    }
 
-    given.emails.bad <- csv$student.id[ ! tolower(csv$student.id) %in% essedata$student.email ] 
+    given.emails.bad <- csv$student.id[ ! tolower(csv$student.id) %in% essedata$student.email ] # considered absent, to be manually graded
     if(length(given.emails.bad)) warning("Wrong emails or not enrolled: ", paste(given.emails.bad, collapse = ", "))
 
     ## Get grades when email available
