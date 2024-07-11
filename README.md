@@ -558,7 +558,7 @@ You get a listing similar to:
     1235 FINANCIAL INVESTMENTS AND RISK MANAGEMENT 2021 Antonio Fasano
     ....
 
-The research is case insensitive, and hopefully the name used by Moodle is not different from the ESSE3 one. Of course, there is no way to find a match if, say, the Moodle convention is to use an initialism, such FIRM, for the case above. In this case, you can specify yourself a search string, that is:
+The research is case insensitive and approximate, that is, in case of slight differences between the name used by Moodle and the ESSE3 one, you still get results. Of course, there is no way to find a match if, say, the Moodle convention is to use an initialism, such FIRM, for the case above. In this case, you can specify yourself a search string, that is:
 
     findMoodleID("FIRM")
   
@@ -574,6 +574,13 @@ So you get
     1234 Financial Investments and Risk Management - Quiz 1
     1235 Financial Investments and Risk Management - Quiz 2
     ...
+
+
+As noted the course search is approximate. If you want a straight search use:
+
+    findMoodleID("FIRM", approx = FALSE)
+
+Note the match is still case insensitive.
 
 
 
@@ -654,11 +661,23 @@ Just like for `md.scores()`, the grades are  printed to the console and saved in
 Still similarly to `md.scores()`, you can pass the arguments `csvpath` and `save` to control the function input and output files.
 
 Finally, `md.grader.credits()` applies a credit weighting scheme. Assume that students participating in a test might have the right to different academic credits, perhaps because they belong to different programs or have already gained some credits. Then we can give the students with fewer credits to achieve fewer questions to answer. Of course,  this would result in a lower quiz grade and we have to reweigh it up in proportion to credits.  
-If the highest credits possible are 10, then a  grade 24 is actually 24 for a 10-credit student, but, for an 8-credit student (who  is tasked to answer only 4/5 of the given questions), the grade is reweighted by the factor 10/8, which yields 30. 
+If the highest credits possible are 10, then a  grade 24 is actually 24 for a 10-credit student, but, for an 8-credit student (who  is tasked to answer only 4/5 of the given questions), the grade is reweighed by the factor 10/8, which yields 30. 
 
-To make this possible, SienaR connects to ESSE3 and looks for student credits, while we should pass the maximum possible credits  to allow rescaling. In fact, it could happen that, for the current sitting, there is nobody to whom the top credits are attributed. Given the example above, this would be:
+Another possibility is to give the lower-credits students the same number of questions, but still remap to a higher grade in  proportion to the credits ratio. In this case, with a fixed proportion, the remapped grade could  bypass the top mark, in Italy 30 cum laude, here 31, To avoid this The base weight factor used to remap is rescaled as the mark approaches the top. 
 
-    md.grader.credits(maxcredits = 10)
+For example, assume a student with 6 credits, whereas the full credit level is 9, then base weight factor is 9/5 = 1.5. Thus, given the Italian pass mark, 18, the related unweighted pass-mark is 18/1.5 = 12. As the mark approaches the top mark 31, the weight is decremented by: `(1.5 - 1) / 19  = 0.026`, where 19 is the distance from pass mark to top mark (31 - 12). 
+Therefore 13 is remapped as:   
+
+    13 * (1.5 - 0.026 * (13 - 12)) = 19.16
+
+and 30 cum laude (with proper decimals) remains as is:
+
+    31 * (1.5 - 0.026 * (31 - 12)) = 31 
+
+
+To make this possible, SienaR connects to ESSE3 and looks for student credits, while we should pass the maximum possible credits  to allow rescaling. In fact, it could happen that, for the current sitting, there is nobody to whom the top credits are attributed. For a mix of 10 and 8 credit students, without assuming the weight factor rescaling, we use:
+
+    md.grader.credits(maxcredits = 10, rescale = FALSE)
 
 which produces an output similar to the following:
 
@@ -678,6 +697,11 @@ The last column, `grade`,  is now the weighted grade;  the `mark` column is the 
 An important thing to note is that you have to set the current course and sitting schedule, by means of `setCourse()` and `setSched()`, otherwise `md.grader.credits()` does not know where to look for. If you already did this before, you might want to re-check current values with `getCurrent()`. 
 
 `md.grader.credits()` supports the usual  `csvpath` and  `save` arguments. As regards the latter,  `md.grader.credits()` produces by default the same `grades.csv` as `md.grader()` overwriting the existing one. This is so because  `md.grader.credits()` output is a superset of `md.grader()`, where you have both the weighted and the unweighted grade, but you can rename the old score file, as shown above, to avoid it being overwritten. 
+
+If you want to rescale the weight, set `rescale = TRUE` or simply don't pass the argument (it's the default):
+
+    md.grader.credits(maxcredits = 10, rescale = TRUE)
+
 
 You might also have noticed, from the output above, that there is another file created, named `studata.rds`. This file is in the R own data format and, if you know the R language,  you can use it to make some further processing. 
 
@@ -772,6 +796,9 @@ If you manage more courses under Testmacs, than you might want to upload all of 
     testmacs.postGrades("Path to Testmacs output directory", "grade file name")
 	
 The first argument is the  path to the Testmacs output directory and the second is the grade file. 
+`testmacs.postGrades()`, you need a file named `official-name.txt`, in the same directoy where the grade files to upload, whose content consist of the official ESSE3 course name. 
+
+
 
 There is a bulk verision of `add.credits()`, that is:
 

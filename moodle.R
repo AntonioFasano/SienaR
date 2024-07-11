@@ -264,7 +264,7 @@ md.grader <- function( # Import Moodle grades, reweight by goodans, badans, skip
     G <- SIENA
 
     ## Get score grid
-    scores <- scores(csvpath, save = FALSE)
+    scores <- md.scores(csvpath, save = FALSE)
     scgrid <- scores[, -1]
     
     ## Compute each student's mark
@@ -287,11 +287,13 @@ md.grader <- function( # Import Moodle grades, reweight by goodans, badans, skip
 
 md.grader.credits <- function( # This is a version of md.grader() weighting grades by course credits
                            maxcredits,      # the maximum number of credits possible for the course 
-                           csvpath = NULL, # if NULL use moodle-grades.csv in in SIENA$workdir
-                           save = TRUE     # Save to space separated file 
+                           csvpath = NULL,  # if NULL use moodle-grades.csv in in SIENA$workdir
+                           save = TRUE,     # Save to space separated file
+                           rescale = TRUE   # If T, weight factor is rescaled as the top mark is approached, else if fixed
                            ){
 ### Each grade is multiplied by M/C, where C are student's credits and M are the maxmum credits possible
-        
+### M/C is gradually rescaled depending on the distance of the grade from top, s.t. scaled factor at top = 1
+    
     G <- SIENA
     
     if(is.null(G$CurCourse)) stop("Before using this function, set a current course in ESSE3\n",
@@ -318,10 +320,12 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
     rownames(e3match) <- e3match$student.email
     e3match <- e3match[ moodlemail,] # sort as in Moodle
 
-    weights <- maxcredits/as.numeric(e3match$credits)
+    # weights <- maxcredits/as.numeric(e3match$credits) # now see .credit.weight()
     grades <- data.frame(email = moodlemail, fullname=e3match$fullname,
                          goodbad = sgrades$goodbad, mark = sgrades$grade,
-                         credits = as.numeric(e3match$credits), grade = sgrades$grade * weights)
+                         credits = as.numeric(e3match$credits),
+                         grade = round(mapply(.credit.weight, sgrades$grade, e3match$credits, maxcredits, rescale)), 1)
+                                 # was sgrades$grade * weights)
 
     ## Save when this is the final output
     if(save){
@@ -334,6 +338,28 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
 
 }
 
+.credit.weight <- function( # remap grade based on its credits and maxcredits
+                           grade, # the grade to remap
+                           credits, maxcredits, rescale # see md.grader.credits()
+                           ){ 
+
+    credits <- as.numeric(credits)
+
+    ## remap factor: e.g with 9/6 = 1.5
+    factor <- maxcredits/credits
+    if(factor == 1) return(grade) 
+
+    ## Find pass grades 
+    pass.places <- which(round(1:31 * factor) >= 18)
+    pass.grades <- (1:31)[pass.places]
+    npass <- length(pass.grades)
+    if(npass < 2) return(grade) # no room for remap
+
+    ## ReScale factor based on distance of first pass grade from top
+    first.pass <- pass.grades[1]
+    decr.by <- (factor - 1) / (npass- 1)  # Denominator is like 31 - first.pass
+    if(rescale) grade *(factor - (grade  - first.pass) * decr.by) else grade * factor
+}
 
 md.anonymise <- function( # use SHA-1 hash of student-ID
                       grades,         # output of md.grader() or md.grader.credits()
@@ -391,7 +417,8 @@ md.anonymise <- function( # use SHA-1 hash of student-ID
 }
 
 findMoodleID <- function(# Print Moodle courses with IDs, contains the current course as a substring or a given one 
-                         searchfor = NULL # Use this as search string if not NULL  
+                         searchfor = NULL, # Use this as search string if not NULL
+                         approx    = TRUE  # Use approximate match (for possible typos)
                          ){
   ## The match is case insensitive
 
@@ -407,6 +434,7 @@ findMoodleID <- function(# Print Moodle courses with IDs, contains the current c
 
   searchfor <- G$Courses$Course[[G$CurCourse]]
   found <- grep(toupper(searchfor), toupper(courses.names), fixed = TRUE)
+  if(approx) found <- agrep(toupper(searchfor), toupper(courses.names), fixed = TRUE)   
   if(!length(found)) stop("Unable to find a course containing (ignoring case) the string:\n", searchfor)
 
   course.tab <- t(sapply(courses[found], function(course) {

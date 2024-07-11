@@ -152,8 +152,10 @@ checkLogin  <- function(resp, first=FALSE){
     G <- SIENA
     if(is.null(G$e3Handle)) stop("Please, login().")
     baseurl=paste0(G$esse3url, "/auth/docente/")
-    url=paste0(baseurl, page, "?", paste(..., sep="&"))
-    resp <- curl_fetch_memory(url, G$e3Handle)
+    url.path <- paste0(baseurl, page)
+    url.full <- if(length(paste(...))) paste0(url.path, "?", paste(..., sep="&")) else url.path 
+    #url=paste0(baseurl, page, "?", paste(..., sep="&"))
+    resp <- curl_fetch_memory(url.full, G$e3Handle)
     checkLogin(resp)
     html <- read_html(resp$content)
     if(!xml_length(xml_find_all(html, "//div[@class='l-header']")))
@@ -665,6 +667,7 @@ testmacs.postGrades <- function(# Find and post Testmacs grade CSVs
                        testmacs.dir, # Tesmacs output dir with course answers, results etc. 
                        gradescsv     # file name of the CSV file with grades 
                        ){
+### You need "official-name.txt" in the same directoy as grades files with the official ESSE3 course name
 
     G <- SIENA
     
@@ -678,8 +681,10 @@ testmacs.postGrades <- function(# Find and post Testmacs grade CSVs
 
     ## Upload grades
     x <- lapply(testmacs, function(course){
-browser()     
-        indir.name <- toupper(readLines(file.path(course['dir'], "official.txt")))
+        ofname.txt <- file.path(course['dir'], "official-name.txt")
+        if(!file.exists(ofname.txt)) stop(sprintf("A file was expected with the official ESSE3 course name:\n%s",
+                                                        ofname.txt), call. = FALSE)
+        indir.name <- toupper(readLines(ofname.txt))[1]
         cur.name <- toupper(G$Courses$Course[G$CurCourse])
         if(indir.name != cur.name)
             stop("Current course is set to ", G$Courses$Course[G$CurCourse], ",\nbut course dir refers to ", indir.name,
@@ -742,12 +747,16 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 # 
 #    }
 
-    given.emails.bad <- csv$student.id[ ! tolower(csv$student.id) %in% essedata$student.email ] # considered absent, to be manually graded
+    ## In Testmacs we use 'student.id' for 'email' (not so in Moodle)
+    ## Until this is sorted we need to be flexible
+    mail.fld <- if("student.id" %in% names(csv)) "student.id" else "email"
+    
+    given.emails.bad <- csv[[mail.fld]][ ! tolower(csv[[mail.fld]]) %in% essedata$student.email ] # considered absent, to be manually graded
     if(length(given.emails.bad)) warning("Wrong emails or not enrolled: ", paste(given.emails.bad, collapse = ", "))
-
+    
     ## Get grades when email available
     grades <- sapply(essedata$student.email, function(essemail){
-        pos <- grep(essemail, csv$student.id, ignore.case = TRUE)
+        pos <- grep(essemail, csv[[mail.fld]], ignore.case = TRUE)
         if(length(pos)) csv[pos , "grade"]  else "NULL"
     })
        
@@ -760,7 +769,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 
     ## Numerical filters
     grades[absents]  <- NA
-    grades  <-  setNames(as.integer(grades), names(grades)) # names help debug
+    grades  <-  setNames(as.integer(round(grades)), names(grades)) # names help debug
     
     ## Scores below 18 imply a "give-up" exam (RITIRATO)
     giveups <- 10 < grades & grades < 18 
