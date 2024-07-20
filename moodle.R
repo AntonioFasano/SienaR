@@ -298,7 +298,7 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
     
     if(is.null(G$CurCourse)) stop("Before using this function, set a current course in ESSE3\n",
                                      "To do this use:\n",
-                                     "login(); getCourses(); setCourse(...code); getSchedules(); setSched(...num)\n")
+                                     "login(); getCourses(); setCourse(...code); getSittings(); setSit(...num)\n")
 
     
     if(missing(maxcredits))
@@ -308,7 +308,7 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
     sgrades <- md.grader(csvpath, save = FALSE)
 
     ## Get ESSE3 data with credits 
-    esse3data <- getSched.studs()
+    esse3data <- getSit.studs()
     e3file  <- file.path(G$workdir, "studata.rds")
     saveRDS(esse3data, e3file)
     ## esse3data <- readRDS(e3file)
@@ -377,10 +377,10 @@ md.anonymise <- function( # use SHA-1 hash of student-ID
     
     if(is.null(G$CurCourse)) stop("Before using this function, set a current course in ESSE3\n",
                                      "To do this use:\n",
-                                     "login(); getCourses(); setCourse(...code); getSchedules(); setSched(...num)\n")
+                                     "login(); getCourses(); setCourse(...code); getSittings(); setSit(...num)\n")
     
     ## Get ESSE3 data with credits 
-    esse3data <- getSched.studs() 
+    esse3data <- getSit.studs() 
     e3file  <- file.path(G$workdir, "studata.rds")
     saveRDS(esse3data, e3file)
     ## esse3data <- readRDS(e3file)

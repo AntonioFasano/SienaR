@@ -2,8 +2,8 @@
 
 ## Browse data:
 ##   login() >
-##   getCourses() > setCourse(Entry) > getSchedules() > setSched(Entry) >
-##   getSched.details, getSched.studs(), getPending()
+##   getCourses() > setCourse(Entry) > getSittings() > setSit(Entry) >
+##   getSit.details, getSit.studs(), getPending()
 
 ## Stats:
 ##   getSummary(); getPending()
@@ -14,7 +14,7 @@
 ## findMember(course, examdate, member)
 
 ## Post grades from Testmacs or Moodle (see moodle.R)
-## setSched(Entry) > postGrades(read.csv(grades.csv))
+## setSit(Entry) > postGrades(read.csv(grades.csv))
 ## cmp_csvesse3()
 
 ## Testmacs note:
@@ -36,10 +36,10 @@ SIENA$e3Credents <-  NULL # ESSE3 credentials as user:pass
 SIENA$e3Handle <- NULL
 SIENA$e3CoursePars <- NULL # List of vectors of pars to query a course, ordered by course entry
 SIENA$Courses <- NULL
-SIENA$Schedules <- NULL
+SIENA$Sittings <- NULL
 SIENA$CurCourse <- NULL
-SIENA$CurSchedule <- NULL
-SIENA$CurSchedule.e3 <- NULL  # ESSE3 sitting ID 
+SIENA$CurSitting <- NULL
+SIENA$CurSitting.e3 <- NULL  # ESSE3 sitting ID 
 SIENA$mainpath <-  sys.calls()[[1]] [[2]]
 SIENA$Auth <- list(Esse3 = "Basic Access Authentication")
 SIENA$LoginFnc <- ".login.basic" 
@@ -101,7 +101,7 @@ login <- function(){ # login to ESSE3
     if(!is.null(G$CurCourse)) {
         message("Looks like you were already using the Exam Management. Reinitialising to ", G$Courses$Course[G$CurCourse])         
         getCourses(prompt = FALSE)
-        getSchedules(prompt = FALSE)
+        getSittings(prompt = FALSE)
     }
 }
 
@@ -159,7 +159,7 @@ checkLogin  <- function(resp, first=FALSE){
     checkLogin(resp)
     html <- read_html(resp$content)
     if(!xml_length(xml_find_all(html, "//div[@class='l-header']")))
-        stop("There is a navigation error. \nThis can happen after the connection expires. To fix it,  select courses and schedules again.")
+        stop("There is a navigation error. \nThis can happen after the connection expires. To fix it,  select courses and sittings again.")
 
     ## TODO .query always imply read_html(), better to call it here recycling previous call above
     rawToChar(resp$content)
@@ -195,7 +195,7 @@ checkLogin  <- function(resp, first=FALSE){
     ## In case of a login problem (session expired), we get a 200 status code (no 50x nor 300x redirect to login page)
     if(grepl("20[[:digit:]]", firstreq.status))  checkLogin(resp)
         
-    ## If we get a 50x we need to check the code logic. Sometimes a getSchedules() before the post will do.  
+    ## If we get a 50x we need to check the code logic. Sometimes a getSittings() before the post will do.  
     if(grepl("50[[:digit:]]", firstreq.status))
         stop (fstatus, "\nPerhaps some functionB was executed before the necessary functionA.")    
     is.redirect <- grepl("30[[:digit:]]", firstreq.status)
@@ -248,7 +248,7 @@ checkLogin  <- function(resp, first=FALSE){
 .getin <- function(fld){ # Extract course elements stored by .parseInputs
     G <- SIENA
     val <- G$e3CoursePars[[G$CurCourse]][fld]
-    if(fld == "APP_ID") val <- G$CurSchedule.e3 # This field is set manually by setSched()
+    if(fld == "APP_ID") val <- G$CurSitting.e3 # This field is set manually by setSit()
     paste0(fld, "=", val) 
 }
 
@@ -277,7 +277,7 @@ checkLogin  <- function(resp, first=FALSE){
 
 
 ##################################################################
-##                        Exam Schedules                        ##
+##                        Exam Sittings                        ##
 ##################################################################
 
 getCourses <- function( # Get available courses, assign a sequential entry number, collect course internal web data
@@ -334,7 +334,7 @@ setCourse <- function( # Set current course
 
 setCourse.infer <- function(course){ # Convert a badly formatted string to a course entry number and set it current.
 ### If the course is already an entry number, just set this entry as current 
-### Course entry numbers are those from getSchedules()). 
+### Course entry numbers are those from getSittings()). 
         
     G <- SIENA
     
@@ -351,129 +351,129 @@ setCourse.infer <- function(course){ # Convert a badly formatted string to a cou
     
 }
 
-getSchedules <- function( # Get exam schedules (sessions) and internal schedule ID
-                         prompt = TRUE # Prompt to use setSched() 
+getSittings <- function( # Get exam sittings (sessions) and internal sitting ID
+                         prompt = TRUE # Prompt to use setSit() 
                          ){ 
-    ## Note the schedule ID is different for different courses 
+    ## Note the sitting ID is different for different courses 
 
     G <- SIENA
     if(is.null(G$CurCourse)) stop("Please, run getCourses(), setCourse() first")   
 
-    scheds  <- .getSchedules()
-    G$Schedules <- scheds
+    sits  <- .getSittings()
+    G$Sittings <- sits
    
     ## Show
     if(prompt) {
-        message(sprintf("Schedules for %s:", G$Courses[G$CurCourse, "Course"]))
-        if(!nrow(scheds)) {
+        message(sprintf("Sittings for %s:", G$Courses[G$CurCourse, "Course"]))
+        if(!nrow(sits)) {
             message("No scheduled exam found!")
         } else {
-            print(data.frame(Schedules=scheds$dateEU, Entry=seq_along(scheds$dateEU)), row.names=FALSE)
-            message("\nUse setSched(entry) to select one.\n")
+            print(data.frame(Sittings=sits$dateEU, Entry=seq_along(sits$dateEU)), row.names=FALSE)
+            message("\nUse setSit(entry) to select one.\n")
         }
     } 
-    invisible(scheds)    
+    invisible(sits)    
 }
 
-.getSchedules <- function(){ # getSchedules() workhorse
+.getSittings <- function(){ # getSittings() workhorse
 
     G <- SIENA
 
     ## Consistency 
     if(is.null(G$CurCourse)) stop("Please, set course first")
 
-    ## Get Schedules html table 
-    schedules.url <- "CalendarioEsami/ElencoAppelliCalEsa.do"
-    schedules <- .query(schedules.url, .getin("AA_ID"), .getin("CDS_ID"), .getin("AD_ID"))
-    html <- read_html(schedules)
-    scheds.htab <- xml_find_all(html, "//table[@class='detail_table']")
+    ## Get Sittings html table 
+    sittings.url <- "CalendarioEsami/ElencoAppelliCalEsa.do"
+    sittings <- .query(sittings.url, .getin("AA_ID"), .getin("CDS_ID"), .getin("AD_ID"))
+    html <- read_html(sittings)
+    sits.htab <- xml_find_all(html, "//table[@class='detail_table']")
 
-    if(!length(scheds.htab)) return(data.frame(desc = "", esse3SchedID = "", datetime = as.POSIXct(0), dateEU = "", enrol.status = "", enrol.num = 0, enrol.green = TRUE, graded.status = "", graded.num = 0, graded.green = TRUE, recorded.status ="", recorded.num = 0, recorded.green = TRUE)[-1,])
+    if(!length(sits.htab)) return(data.frame(desc = "", esse3SitID = "", datetime = as.POSIXct(0), dateEU = "", enrol.status = "", enrol.num = 0, enrol.green = TRUE, graded.status = "", graded.num = 0, graded.green = TRUE, recorded.status ="", recorded.num = 0, recorded.green = TRUE)[-1,])
     
     ## Get table headers and body
-    schedArray <- .htmlTab2Array(scheds.htab, toText = FALSE)
-    headers <- schedArray[[1]]
+    sitArray <- .htmlTab2Array(sits.htab, toText = FALSE)
+    headers <- sitArray[[1]]
     headers <- sapply(headers, xml_text)
-    grid <- schedArray[-1]
+    grid <- sitArray[-1]
 
-    ## Function to parse a schedule row. Header have often the same name, usually the first apply
-    E <- new.env() # to store each schedule row by reference
+    ## Function to parse a sitting row. Header have often the same name, usually the first apply
+    E <- new.env() # to store each sitting row by reference
 
-    ## Functions to parse the current E$row schedule
+    ## Functions to parse the current E$row sitting
     text <- function(header) xml_text(E$row[[which(headers == header)[1]]], trim = TRUE)
     a.text <- function(header) xml_text(xml_find_all(E$row[[which(headers == header)[1]]], "./a"), trim = TRUE)
     a.href <- function(header) xml_attr(xml_find_all(E$row[[which(headers == header)[1]]], "./a"), "href")
     img.title <- function(header) xml_attr(xml_find_all(E$row[[which(headers == header)[1]]], "./img"), "title")
     text2.num <- function(header) as.numeric(xml_text(E$row[[which(headers == header)[2]]])) # assumed in the 2nd header col
     
-    ## Parse each schedule row
-    sched.lst <- lapply(seq_along(grid), function(row){
+    ## Parse each sitting row
+    sit.lst <- lapply(seq_along(grid), function(row){
 
-        ## Set current row with the schedule to parse with the *text*() funcs defined above
+        ## Set current row with the sitting to parse with the *text*() funcs defined above
         E$row <- grid[[row]] 
-        sched <- list()
+        sit <- list()
         
-        sched$desc <- a.text('Exam session description')
+        sit$desc <- a.text('Exam session description')
         internals <- a.href('Exam session description') # has internal pars
-        sched$esse3SchedID <- str_match(internals, "APP_ID=([^&]+)")[,2]
+        sit$esse3SitID <- str_match(internals, "APP_ID=([^&]+)")[,2]
 
-        sched$datetime <- .parse.time.eu(text('Classroom date time'))
-        sched$dateEU <- .eudate(sched$datetime)  
+        sit$datetime <- .parse.time.eu(text('Classroom date time'))
+        sit$dateEU <- .eudate(sit$datetime)  
     
-        sched$enrol.status  <- img.title('Enrolled students')
+        sit$enrol.status  <- img.title('Enrolled students')
         num <- text2.num('Enrolled students')
-        sched$enrol.num <- if(is.na(num)) 0 else num 
-        sched$enrol.green  <- sched$enrol.status == "Registrations closed"
+        sit$enrol.num <- if(is.na(num)) 0 else num 
+        sit$enrol.green  <- sit$enrol.status == "Registrations closed"
         
-        sched$graded.status <- img.title('Results entered')
+        sit$graded.status <- img.title('Results entered')
         num <- text2.num('Results entered')
-        sched$graded.num <- if(is.na(num)) 0 else num
-        sched$graded.green  <- sched$graded.status == "Results input closed"
+        sit$graded.num <- if(is.na(num)) 0 else num
+        sit$graded.green  <- sit$graded.status == "Results input closed"
         
-        sched$recorded.status <- img.title('Records generated')
+        sit$recorded.status <- img.title('Records generated')
         num <- text2.num('Records generated')
-        sched$recorded.num <- if(is.na(num)) 0 else num
-        sched$recorded.green  <- sched$recorded.status == "Recordings closed"
+        sit$recorded.num <- if(is.na(num)) 0 else num
+        sit$recorded.green  <- sit$recorded.status == "Recordings closed"
 
         ## Return row as list 
-        sched
+        sit
     })
 
     ## Return a unique data.frame
-    Reduce(rbind, lapply(sched.lst, data.frame))
+    Reduce(rbind, lapply(sit.lst, data.frame))
         
 }
 
-setSched <- function( # Set entry as global `CurSchedule' and set related ESSE3 sitting ID as global `CurSchedule.e3'
-                     entry # Schedule entry number as from getSchedules() 
+setSit <- function( # Set entry as global `CurSitting' and set related ESSE3 sitting ID as global `CurSitting.e3'
+                     entry # Sitting entry number as from getSittings() 
                      ) {
     
     G <- SIENA
-    if(is.null(G$Schedules)) stop("Please, run getCourses(), setCourse() and getSchedules() first")
-    G$CurSchedule <- entry
-    scheduleid <- G$Schedules$esse3SchedID[entry]
-    #G$e3CoursePars[[G$CurCourse]]["APP_ID"] <- scheduleid
-    G$CurSchedule.e3 <- scheduleid # The field is set manually to avoid a reset every getCourses()
-    G$Schedules[entry, "dateEU"]
+    if(is.null(G$Sittings)) stop("Please, run getCourses(), setCourse() and getSittings() first")
+    G$CurSitting <- entry
+    sittingid <- G$Sittings$esse3SitID[entry]
+    #G$e3CoursePars[[G$CurCourse]]["APP_ID"] <- sittingid
+    G$CurSitting.e3 <- sittingid # The field is set manually to avoid a reset every getCourses()
+    G$Sittings[entry, "dateEU"]
 }
 
-getCurrent <- function(){ # Get current course name and schedule (EU date)
+getCurrent <- function(){ # Get current course name and sitting (EU date)
 
     G <- SIENA
 
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
 
     name <- G$Courses$Course[[G$CurCourse]]
-    sched <- G$Schedules$dateEU[G$CurSchedule]
-    #sched <- sub(".+=", "",  sched)
+    sit <- G$Sittings$dateEU[G$CurSitting]
+    #sit <- sub(".+=", "",  sit)
 
-    c(name=name, schedule=sched)
+    c(name=name, sitting=sit)
      
 }
 
-getSched.details <- function( # Get details for the default exam schedule or a given schedule entry number or date
-                         entrynum = NULL,  # if both entrynum and date are NULL, SIENA$CurSchedule is used 
+getSit.details <- function( # Get details for the default exam sitting or a given sitting entry number or date
+                         entrynum = NULL,  # if both entrynum and date are NULL, SIENA$CurSitting is used 
                          date = NULL
                          ){
 
@@ -481,51 +481,51 @@ getSched.details <- function( # Get details for the default exam schedule or a g
 
     ## Consistency 
     if(is.null(G$CurCourse)) stop("Please, set course first")
-    if(is.null(entrynum) && is.null(date) && is.null(G$CurSchedule))
-        stop("Please, set a current schedule first or pass the schedule entry number or date")
+    if(is.null(entrynum) && is.null(date) && is.null(G$CurSitting))
+        stop("Please, set a current sitting first or pass the sitting entry number or date")
     if(!is.null(entrynum) && !is.null(date)) 
-        stop("Please, give me whether the schedule entry number or its date")    
+        stop("Please, give me whether the sitting entry number or its date")    
 
-    ## Get schedules
-    scheds <- .getSchedules()
+    ## Get sittings
+    sits <- .getSittings()
 
     ## Set entrynum 
-    dates  <- .parse.date(scheds$datetime)
-    if(is.null(entrynum)) entrynum <- G$CurSchedule
+    dates  <- .parse.date(sits$datetime)
+    if(is.null(entrynum)) entrynum <- G$CurSitting
     if(!is.null(date)) entrynum <- which(dates == date)
     if(length(entrynum) == 0)
-        stop("Unable to find a schedule on ", date, " for ", coursename)
+        stop("Unable to find a sitting on ", date, " for ", coursename)
 
-    sched <- scheds[entrynum, ]
+    sit <- sits[entrynum, ]
 
     ## Add course name after sitting desc
     cname <- getCurrent()['name']
-    sched <-  append(sched, list(course = cname), 1)
+    sit <-  append(sit, list(course = cname), 1)
 
     ## Pretty print
-    sched <- t(list2DF(sched))
-    colnames(sched) <- " "
-    rownames(sched) <- tools:::toTitleCase(gsub("\\.", " ",  rownames(sched)))
-    sched       
+    sit <- t(list2DF(sit))
+    colnames(sit) <- " "
+    rownames(sit) <- tools:::toTitleCase(gsub("\\.", " ",  rownames(sit)))
+    sit       
 
 }
 
-getSched.studs <- function(# Get ESSE3 data for current course and schedule
+getSit.studs <- function(# Get ESSE3 data for current course and sitting
                          short = FALSE, # only fullname, student.email (unless email = FALSE) , result, accept-flag
                          personal = TRUE # If true add email, birth date, an tax codes, from student personal page
                          ){ 
 
     G <- SIENA
     
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
 
-    examDateEU <- G$Schedules[G$CurSchedule, 'dateEU']
+    examDateEU <- G$Sittings[G$CurSitting, 'dateEU']
     message(sprintf("Querying %s on %s", G$Courses[G$CurCourse, "Course"], examDateEU))
 
     ## Get Enrol page
     esseData <- "CalendarioEsami/ListaStudentiEsame.do"
-    # esseData <- .query(esseData, .getin("CDS_ID"), .getin("AD_ID"), scheduleid, examDateEU)
+    # esseData <- .query(esseData, .getin("CDS_ID"), .getin("AD_ID"), sittingid, examDateEU)
     esseData <- .query(esseData, .getin("CDS_ID"), .getin("AD_ID"), .getin("APP_ID"))#, examDateEU)
 
     html <- read_html(esseData)
@@ -616,27 +616,27 @@ getPending <- function(){ # Get traffic lights data for due exams
     for(curcourse in courses.entries){
 
         setCourse(curcourse)
-        scheds <- .getSchedules()
+        sits <- .getSittings()
 
         ## Remove rows with future dates
-        scheds <- scheds[scheds$datetime <= Sys.time(), ]
+        sits <- sits[sits$datetime <= Sys.time(), ]
 
         ## Remove rows with sittings not subject to recording 
-        scheds <- scheds[scheds$recorded.status != "Verbalizzazioni non previste", ]
+        sits <- sits[sits$recorded.status != "Verbalizzazioni non previste", ]
         
-        scheds.df <- data.frame(date = .eudate(scheds$datetime), time = format(scheds$datetime, "%H:%M"),
-                                graded.green = scheds$graded.green,
-                                recorded.green = scheds$recorded.green
+        sits.df <- data.frame(date = .eudate(sits$datetime), time = format(sits$datetime, "%H:%M"),
+                                graded.green = sits$graded.green,
+                                recorded.green = sits$recorded.green
                                 )
 
         ## Select only rows where grades or records are non-green
-        non.green <- scheds.df$graded.green == FALSE | scheds.df$recorded.green == FALSE
-        scheds.df <- scheds.df[non.green,]
+        non.green <- sits.df$graded.green == FALSE | sits.df$recorded.green == FALSE
+        sits.df <- sits.df[non.green,]
 
         ## Pretty print
         message("\n", courses$Course[curcourse])
-        if(nrow(scheds.df) > 0) {
-            print(scheds.df, row.names = FALSE)
+        if(nrow(sits.df) > 0) {
+            print(sits.df, row.names = FALSE)
         } else message("No red flags found.")        
     }
 }
@@ -646,13 +646,13 @@ getSummary <- function( # Enrolled students for each course and for first availa
 
     smry <- t(sapply(seq_along(unique(getCourses(prompt = FALSE))), function(cur){
         course <- setCourse(cur)
-        dates <- as.Date(getSchedules(prompt = FALSE)$datetime) # dates are descending
+        dates <- as.Date(getSittings(prompt = FALSE)$datetime) # dates are descending
         enrolcount <- paste("No sitting available from", fromDate)
         sitdate <- NA
         which.dates <- which(dates >= fromDate)
         if(length(which.dates)){
-            sitdate <- setSched(max(which.dates))
-            enrolcount <- getSched.details()['Enrol Num',]
+            sitdate <- setSit(max(which.dates))
+            enrolcount <- getSit.details()['Enrol Num',]
         }
         c(paste(as.Date(sitdate, "%d/%m/%Y")), course, enrolcount)
     }))
@@ -679,8 +679,8 @@ testmacs.postGrades <- function(# Find and post Testmacs grade CSVs
     
     ## Check we are logged and set course and session
     if(is.null(G$e3Handle)) stop("Please, login().")  
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
     
     ## Get Testmacs results
     testmacs <- .testmacs.results(testmacs.dir, gradescsv)
@@ -716,8 +716,8 @@ postGrades <- function(# Post grade from csv data.frame using matching email
     
     ## Check we are logged and set course and session
     if(is.null(G$e3Handle)) stop("Please, login().")  
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
 
 
     ## Get grades
@@ -733,7 +733,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 
     
     ## Inform and wait for slow connections
-    examDateEU <- G$Schedules[G$CurSchedule, 'dateEU']
+    examDateEU <- G$Sittings[G$CurSitting, 'dateEU']
     message(sprintf("In 5 seconds, grading %s on %s", G$Courses[G$CurCourse, "Course"], examDateEU))
     Sys.sleep(5)
 
@@ -742,7 +742,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
     gradeurl <- paste0(G$esse3url, gradeurl)
     
     ## Get ESSE3 student data (e.g. emails)
-    essedata <- getSched.studs()
+    essedata <- getSit.studs()
 
     ## Check bad given emails
 #    miss.emails <- sum(csv$email == "NIL")
@@ -791,9 +791,9 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 
     ## Grading Type
     message("Retrieving grading type from submission form")
-    #sched <- G$Schedules[ G$CurSchedule, ]  
+    #sit <- G$Sittings[ G$CurSitting, ]  
     #subpage <- .query("CalendarioEsami/RegistrazioneEsitiEsameForm.do", .getin("AA_ID"),
-    #                  "MIN_AA_CAL_ID=0", paste(sched$adid, sched$cdsid, sched$scheduleid, sep="&"))
+    #                  "MIN_AA_CAL_ID=0", paste(sit$adid, sit$cdsid, sit$sittingid, sep="&"))
 
     subpage <- .query("CalendarioEsami/RegistrazioneEsitiEsameForm.do", .getin("AA_ID"),
                        .getin("CDS_ID"), .getin("AD_ID"), .getin("APP_ID"), "MIN_AA_CAL_ID=0")
@@ -805,11 +805,11 @@ postGrades <- function(# Post grade from csv data.frame using matching email
     grdtypeID <- xml_attr(grdtypeID, "value")
 
     ## Test ESSE3 APP ID variable
-    sched <- G$Schedules[ G$CurSchedule, ]
-    if(paste0("APP_ID=", sched$esse3SchedID) != .getin("APP_ID"))
-        stop("In ",  getCurrent()['name'], " course,\non exam scheduled on ", getCurrent()['schedule'], 
-            "\nthe ESSE3 schedule ID found in the global SienaR pars and in the current schedule variable differ.",
-             "\n\nPlease, run getSchedules() and setSched(entry) again.")
+    sit <- G$Sittings[ G$CurSitting, ]
+    if(paste0("APP_ID=", sit$esse3SitID) != .getin("APP_ID"))
+        stop("In ",  getCurrent()['name'], " course,\non exam sittingd on ", getCurrent()['sitting'], 
+            "\nthe ESSE3 sitting ID found in the global SienaR pars and in the current sitting variable differ.",
+             "\n\nPlease, run getSittings() and setSit(entry) again.")
     
     ## Prepare postdata
     ptamp <- function(...) paste(..., sep = '&')
@@ -836,7 +836,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
   
     postdata <- paste0(pflds, postdata)
     
-    handle_reset(G$e3Handle)  # avoid conflicts last fetch from getSched.studs()
+    handle_reset(G$e3Handle)  # avoid conflicts last fetch from getSit.studs()
     handle_setopt(G$e3Handle,  postfields=postdata, followlocation = FALSE, timeout = 15) # timeout = <seconds>    
     n <- 0
     while(n <- n +1) {
@@ -896,8 +896,8 @@ testmacs.add.credits <- function(# Find Testmacs grade CSVs and add ESSE3 course
     
     ## Check we are logged and set course and session
     if(is.null(G$e3Handle)) stop("Please, login().")  
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
     
     ## Get Testmacs results
     testmacs <- .testmacs.results(testmacs.dir, gradescsv)
@@ -925,8 +925,8 @@ add.credits <- function( # Add ESSE3 course credit weights to a Testmacs results
 
     ## Check we are logged and set course and session
     if(is.null(G$e3Handle)) stop("Please, login().")  
-    if(is.null(G$CurCourse)) stop("Please, set course and schedule first")
-    if(is.null(G$CurSchedule)) stop("Please, set course and schedule first")
+    if(is.null(G$CurCourse)) stop("Please, set course and sitting first")
+    if(is.null(G$CurSitting)) stop("Please, set course and sitting first")
 
     ## Check args
     if(missing(maxcredits))
@@ -944,7 +944,7 @@ add.credits <- function( # Add ESSE3 course credit weights to a Testmacs results
     grades <- read.csv(csvfile)
     
     ## Get ESSE3 data with credits 
-    esse3data <- getSched.studs()
+    esse3data <- getSit.studs()
     e3file <- file.path(workdir, "studata.rds")
     saveRDS(esse3data, e3file)
     ## esse3data <- readRDS(e3file)
@@ -1294,23 +1294,23 @@ findSittingID <- function(examdate, compareID = NULL){ # Given a sitting date fo
     ## English/Italian date
     examdate  <- format(examdate,  "%d/%m/%Y")
       
-    schedules <- "CalendarioEsami/ElencoAppelliCalEsa.do"
-    schedules <- .query(schedules, .getin("AA_ID"), .getin("CDS_ID"), .getin("AD_ID"))    
-    html <- read_html(schedules)
-    sched.tab <- xml_find_all(html, "//table[@class='detail_table']")
+    sittings <- "CalendarioEsami/ElencoAppelliCalEsa.do"
+    sittings <- .query(sittings, .getin("AA_ID"), .getin("CDS_ID"), .getin("AD_ID"))    
+    html <- read_html(sittings)
+    sit.tab <- xml_find_all(html, "//table[@class='detail_table']")
 
     ## Identify the row with matching date
-    dates  <- .htmlTab2Array(sched.tab)[-1,3]
+    dates  <- .htmlTab2Array(sit.tab)[-1,3]
     dates <- sapply(strsplit(dates, " "), `[`, 1)
     rowpos <- grep(examdate, dates) +1 # most likely 1 (for last date) plus th
     if(length(rowpos)==0) stop("No sitting found on ", examdate)
     if(length(rowpos)>1) stop("Too many sitting found on ", examdate)
     
     ## The first row in the cell has an anchor with the sitting ID
-    tab <- .htmlTab2Array(sched.tab, toText = FALSE)
+    tab <- .htmlTab2Array(sit.tab, toText = FALSE)
     acell <- tab[[rowpos]][[1]] # first cell in matching row
-    schedhref <- xml_attr(xml_find_all(acell , "./a"), "href")
-    foundID <- regmatches(schedhref, regexec("APP_ID=([[:digit:]]+)", schedhref))[[1]][2]
+    sithref <- xml_attr(xml_find_all(acell , "./a"), "href")
+    foundID <- regmatches(sithref, regexec("APP_ID=([[:digit:]]+)", sithref))[[1]][2]
 
     if(!is.null(compareID) && compareID != foundID)
         stop("You asked for ", G$Courses$Course[G$CurCourse], ", with sitting ID", compareID, " on ", examdate,

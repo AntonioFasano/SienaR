@@ -5,7 +5,7 @@ While SienaR is written in R, no specific knowledge of R is required to use it.
 
 You can do essentially two things with SienaR. 
 
-- Browse and set exam schedules. 
+- Browse and set exam sittings. 
 - Upload exam results.  
 
 The second feature was intended as a plug-in for my [Testmacs](https://github.com/antoniofasano/testmacs) e-learning tool for R. It is also possible by means of a plugin based on [Moodle](https://moodle.org/), which can download MCQ responses, grade them and upload grades to ESSE3.   
@@ -181,43 +181,43 @@ If we want to read or make modifications to a specific course, we need to make i
 
 Now, to list the scheduled exam sitting  for this course, use:
 
-    getSchedules() 
+    getSittings() 
 
 The output will be similar to:
 
-    Schedules for Banking Management:
-      Schedules Entry
+    Sittings for Banking Management:
+      Sittings Entry
      05/10/2021     1
      17/09/2021     2
      02/09/2021     3
      29/06/2021     4
      
-    Use setSched(entry) to select one.
+    Use setSit(entry) to select one.
 
 
 Identify the sitting entry number which interests you, and, assuming it's the last-date entry, select it with: 
    
    
-    setSched(1)
+    setSit(1)
 	
-The function returns the related date, which, based on the example above, would be 05/10/2021, and  sets it  as the current schedule.	 
+The function returns the related date, which, based on the example above, would be 05/10/2021, and  sets it  as the current sitting.	 
 If, at any time, you forget  what are the current course and sitting schedule and want to check them, use:
 
     getCurrent()
 
 The output is similar to:
 
-                                           name      schedule 
+                                           name      sitting 
     "Financial Investments and Risk Management"  "05/10/2021" 
 
-At this point, if you want to print the details of the current exam schedule, issue:
+At this point, if you want to print the details of the current exam sitting, issue:
 
-    getSched.details()
+    getSit.details()
 
 The output is similar to:
                                       
     Desc            "Sitting VIII"        
-    esse3SchedID    "94"                  
+    esse3SitID    "94"                  
     Datetime        "2021-10-05 09:00:00" 
     dateEU          "05/10/2021"          
     Enrol Status    "Registrations closed"
@@ -231,17 +231,17 @@ The output is similar to:
     Recorded Green  "TRUE"                
 
 
-The output, which could be improved in the future for readability, is roughly similar to the related row in the schedule grid of the exam schedules page in the web app. "Recording" is the  digital signature of the  grades published online, that is ESSE3 legalese. Don't confuse the `esse3SchedID` sitting ID, used internally by ESSE3, with the sitting's  entry number from `getSchedules()`: the latter is just a convenience to set the current schedule.   
-Note that you can use this function to query any schedule for the current course. To do so, use whether the related entry number (from `getSchedules()`) or its date, e.g: 
+The output, which could be improved in the future for readability, is roughly similar to the related row in the sitting grid of the exam sittings page in the web app. "Recording" is the  digital signature of the  grades published online, that is ESSE3 legalese. Don't confuse the `esse3SitID` sitting ID, used internally by ESSE3, with the sitting's  entry number from `getSittings()`: the latter is just a convenience to set the current sitting.   
+Note that you can use this function to query any sitting for the current course. To do so, use whether the related entry number (from `getSittings()`) or its date, e.g: 
 
-    getSched.details(2)
-    getSched.details( date = as.Date("2021/09/17") )
+    getSit.details(2)
+    getSit.details( date = as.Date("2021/09/17") )
 	
 Yes, `as.Date("2021/09/17")` is the formal way to use a date in R language, that is: `as.Date("year/month/day")`. There are some advantages in using the so-called ISO dates, but it is annoying to type them so and that will be simplified in the future, opting for a human date syntax. 
 
 Now, you might want to get some information about students enrolled to the current sitting, this is done with:
 
-    getSched.studs()
+    getSit.studs()
 
 
 The output is quite large, so is usually split, unless you have a very large screen, and is similar to: 
@@ -264,11 +264,11 @@ Nota that the `esse3studid` column is an internal student ID, used  by the web a
 To get personal student data, this function chases each link to student pages, which could slow down a bit the output production. To avoid this, you can use:
 
 
-    getSched.studs(personal = FALSE)
+    getSit.studs(personal = FALSE)
 
 which  essentially gives  the same output as the related ESSE3 page, speeding up results. If what you need is a compact print, showing just the results with the accept flags next to the student name and email, use: 
 
-    getSched.studs(short = TRUE)
+    getSit.studs(short = TRUE)
 
 Of course, if you use the arguments `short = TRUE, personal = FALSE`, you will not get the email could, as that would require accessing  the student personal pages. 
 
@@ -278,7 +278,7 @@ Finally, you can make a general check of the traffic lights status with:
  
     getPending()
  
-This function scans the exam-schedules page of each course and looks for any non-green status under the "Results entered", and "Records generated" columns. Essentially, that means you did not yet publish grades or did not digitally sign them. 
+This function scans the exam-sittings page of each course and looks for any non-green status under the "Results entered", and "Records generated" columns. Essentially, that means you did not yet publish grades or did not digitally sign them. 
 
 
     Banking Management
@@ -694,7 +694,7 @@ which produces an output similar to the following:
 The last column, `grade`,  is now the weighted grade;  the `mark` column is the former unweighted grade. 
 
 
-An important thing to note is that you have to set the current course and sitting schedule, by means of `setCourse()` and `setSched()`, otherwise `md.grader.credits()` does not know where to look for. If you already did this before, you might want to re-check current values with `getCurrent()`. 
+An important thing to note is that you have to set the current course and sitting schedule, by means of `setCourse()` and `setSit()`, otherwise `md.grader.credits()` does not know where to look for. If you already did this before, you might want to re-check current values with `getCurrent()`. 
 
 `md.grader.credits()` supports the usual  `csvpath` and  `save` arguments. As regards the latter,  `md.grader.credits()` produces by default the same `grades.csv` as `md.grader()` overwriting the existing one. This is so because  `md.grader.credits()` output is a superset of `md.grader()`, where you have both the weighted and the unweighted grade, but you can rename the old score file, as shown above, to avoid it being overwritten. 
 
@@ -757,7 +757,7 @@ Posting grades to ESSE3 is as simple as writing:
 
     postGrades()
 
-As noted for other functions, to post to the proper scheduled sitting, you have to use  `setCourse()` and `setSched()`, and if you  did this a while ago, you'd  better check the current values with `getCurrent()`. 
+As noted for other functions, to post to the proper scheduled sitting, you have to use  `setCourse()` and `setSit()`, and if you  did this a while ago, you'd  better check the current values with `getCurrent()`. 
 
 By default, `postGrades()` uses the `grades.csv` found in the working directory you have set and produced by `md.grader()` or 
 `md.grader.credits()` in the [Moodle Plugin](#moodle-plugin), or by [Testmacs](https://github.com/antoniofasano/testmacs).  
