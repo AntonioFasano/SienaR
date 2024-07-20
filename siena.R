@@ -398,6 +398,8 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
 
     ## Function to parse a schedule row. Header have often the same name, usually the first apply
     E <- new.env() # to store each schedule row by reference
+
+    ## Functions to parse the current E$row schedule
     text <- function(header) xml_text(E$row[[which(headers == header)[1]]], trim = TRUE)
     a.text <- function(header) xml_text(xml_find_all(E$row[[which(headers == header)[1]]], "./a"), trim = TRUE)
     a.href <- function(header) xml_attr(xml_find_all(E$row[[which(headers == header)[1]]], "./a"), "href")
@@ -407,7 +409,8 @@ getSchedules <- function( # Get exam schedules (sessions) and internal schedule 
     ## Parse each schedule row
     sched.lst <- lapply(seq_along(grid), function(row){
 
-        E$row <- grid[[row]] # passed by reference and seen  text*() funcs
+        ## Set current row with the schedule to parse with the *text*() funcs defined above
+        E$row <- grid[[row]] 
         sched <- list()
         
         sched$desc <- a.text('Exam session description')
@@ -618,6 +621,9 @@ getPending <- function(){ # Get traffic lights data for due exams
         ## Remove rows with future dates
         scheds <- scheds[scheds$datetime <= Sys.time(), ]
 
+        ## Remove rows with sittings not subject to recording 
+        scheds <- scheds[scheds$recorded.status != "Verbalizzazioni non previste", ]
+        
         scheds.df <- data.frame(date = .eudate(scheds$datetime), time = format(scheds$datetime, "%H:%M"),
                                 graded.green = scheds$graded.green,
                                 recorded.green = scheds$recorded.green
@@ -631,7 +637,7 @@ getPending <- function(){ # Get traffic lights data for due exams
         message("\n", courses$Course[curcourse])
         if(nrow(scheds.df) > 0) {
             print(scheds.df, row.names = FALSE)
-        } else message("No non-green label found.")        
+        } else message("No red flags found.")        
     }
 }
 
