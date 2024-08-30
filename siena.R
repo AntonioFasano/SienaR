@@ -775,7 +775,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
 
     ## Numerical filters
     grades[absents]  <- NA
-    grades  <-  setNames(as.integer(round(grades)), names(grades)) # names help debug
+    grades  <-  setNames(round(as.numeric(grades)), names(grades)) # names help debug
     
     ## Scores below 18 imply a "give-up" exam (RITIRATO)
     giveups <- 10 < grades & grades < 18 

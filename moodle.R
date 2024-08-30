@@ -324,7 +324,7 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
     grades <- data.frame(email = moodlemail, fullname=e3match$fullname,
                          goodbad = sgrades$goodbad, mark = sgrades$grade,
                          credits = as.numeric(e3match$credits),
-                         grade = round(mapply(.credit.weight, sgrades$grade, e3match$credits, maxcredits, rescale)), 1)
+                         grade = round(mapply(.credit.weight, sgrades$grade, e3match$credits, maxcredits, rescale), 1))
                                  # was sgrades$grade * weights)
 
     ## Save when this is the final output
@@ -349,13 +349,13 @@ md.grader.credits <- function( # This is a version of md.grader() weighting grad
     factor <- maxcredits/credits
     if(factor == 1) return(grade) 
 
-    ## Find pass grades 
+    ## Find passing grades 
     pass.places <- which(round(1:31 * factor) >= 18)
     pass.grades <- (1:31)[pass.places]
     npass <- length(pass.grades)
     if(npass < 2) return(grade) # no room for remap
 
-    ## ReScale factor based on distance of first pass grade from top
+    ## ReScale factor based on distance of the (first) pass grade from top
     first.pass <- pass.grades[1]
     decr.by <- (factor - 1) / (npass- 1)  # Denominator is like 31 - first.pass
     if(rescale) grade *(factor - (grade  - first.pass) * decr.by) else grade * factor
