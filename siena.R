@@ -844,7 +844,7 @@ postGrades <- function(# Post grade from csv data.frame using matching email
         resp <- curl_fetch_memory(gradeurl, G$e3Handle)
         checkLogin(resp) # After getting Esse3 data, expiration's unlikely, but this is cheap
         hdr <- parse_headers(resp$headers)
-        if(hdr[1]!="HTTP/1.1 200 OK") {
+        if(!grepl("HTTP/1.1 200", hdr[1])) {
             if(n==4) stop("Unable to post after ", n, " attempts. Last error is\n", hdr[1])
             message(hdr[1], "\nSleeping 5 secs before reposting")
             Sys.sleep(5)
