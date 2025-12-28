@@ -321,21 +321,25 @@ getCourses <- function( # Get available courses, assign a sequential entry numbe
     html <- read_html(gencal)
     course.tab <- xml_find_all(html, "//table[@class='detail_table']")
     if(! length(course.tab)) stop("There seems to be no courses associated with current credentials.")
-    courses <- .htmlTab2Array(course.tab)
 
-    ## Convert table to DF
-    #courses <- as.data.frame(t(sapply(course.tab, sapply, xml_text)))
+    # Generate a course selection index  based on clikcable rows  
+    courserows <- xml_find_all(course.tab, 'tr')[-1] # remove table head
+    courserows.clickable <- lapply(courserows, xml_find_all, 'td/form') |> lapply(length) == 1
+    clickindex <- cumsum(courserows.clickable) # seqential num for clickable, copy from above for non-clcikable
+
+    ## Convert HTML table to DF
+    courses <- .htmlTab2Array(course.tab)
     courses <- courses[-1, c(3,1,2)]
     names(courses) <- c("Entry", "Course", "Program")
-    courses$Program <- gsub(",.D.M. 270/2004", "", courses$Program)
-    courses$Entry <- as.integer(factor(courses$Course, unique(courses$Course)))
+    courses$Program <- regexpr(".+ \\[[[:alnum:]]+]", courses$Program) |> regmatches(courses$Program, m =_)
+    courses$Entry <- clickindex
     if(prompt) {
         print(courses , row.names=FALSE)
         message("\nUse setCourse(Entry) to select one.\n")
     }
     
     ## Store courses
-    rawnames <- unique(courses$Course)
+    rawnames <- courses$Course[courserows.clickable]
     G$Courses <- data.frame(
         Course= tools::toTitleCase(tolower(gsub(" \\[[[:digit:]]+\\]", "", rawnames))),
         Entry= seq_along(rawnames),
@@ -344,7 +348,7 @@ getCourses <- function( # Get available courses, assign a sequential entry numbe
             `[`, 2) 
     )
 
-    ## Extract course data from links
+    ## Extract & store course data from their link
     courses.raw <-  .htmlTab2Array(course.tab, toText = FALSE)
     links <- unique(lapply(courses.raw, "[[", 3)[-1])
     forms <- lapply(links, xml_find_all, "./form")
