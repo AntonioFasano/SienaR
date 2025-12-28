@@ -41,6 +41,8 @@ shib.auth <- function(what){ # what can be 'both', 'esse3', 'moodle'
 
 .login.shibboleth <- function(){ # Login to ESSE3 via Shibboleth
 
+    ## Auth requires 4 get/post requests (steps below)
+ 
     G <- SIENA
     .internetOK()
 
@@ -57,41 +59,56 @@ shib.auth <- function(what){ # what can be 'both', 'esse3', 'moodle'
                          "&_eventId_proceed=") # <- this empty field is necessary
 
     h <- new_handle()
-    
+
+    ## Step 1
     ## Request Esse3 login page. That will redirect to Shibboleth SSO page (usually on a different subdomain)
     message('.', appendLF = FALSE)
     e3logurl <- paste0(G$esse3url, "/auth/Logon.do?cod_lingua=eng") # will redir to shibboleth SSO site
     resp <- curl_fetch_memory(e3logurl, h) #1
 
+    ## Step 2
     ## Find 'Continue' button and push it ('cause we have no scripts)  
     message('.', appendLF = FALSE)
     contBtn <- xml_find_all(read_html(rawToChar(resp$content)), "//form//noscript//input[@value='Continue']")
-    if(!length(contBtn)) stop("Unexpected result in step 1 of Shibboleth login")
+    if(!length(contBtn)) stop("Unexpected result in Step 1 of .login.shibboleth()")
     form <- xml_find_all(contBtn, "./ancestor::form")
     resp <- .replayForm(form, resp, h)    #2
 
+    ## Step 3
+    ## Ask to show the standards University login form (there are more auth flows)
+    message('.', appendLF = FALSE)
+    form <- xml_find_all(read_html(rawToChar(resp$content)), "//form[@id='triggerFlow']") # placehold form
+    if(!length(form)) stop("Unexpected result in Step 2 of .login.shibboleth()")
+    ask.university.auth <- "_eventId_routing=&selected_flow=internal&auth_ctx=authn%2FPassword"
+    postfields.opt <- list(post = TRUE, postfields = ask.university.auth)
+    handle_setopt(h, .list = postfields.opt)
+    submitLink <- xml_attr(form, "action")
+    url <- paste0(.urlHost(resp$url), submitLink)
+    resp <- curl_fetch_memory(url, h)    #3
+
+    ## Step 4
     ## Detect credential form and post them 
     message('.', appendLF = FALSE)
     username.fld <- xml_find_all(read_html(rawToChar(resp$content)), "//form//input[@id='username']") # or @name='j_username'
-    if(!length(username.fld)) stop("Unexpected result in step 2 of Shibboleth login")    
+    if(!length(username.fld)) stop("Unexpected result in Step 3 of .login.shibboleth()") 
     form <- xml_find_all(username.fld, "./ancestor::form")
     submitLink <- xml_attr(form, "action")
     url <- paste0(.urlHost(resp$url), submitLink)
     postfields.opt <- list(post = TRUE, postfields = creds.post)
     handle_setopt(h, .list = postfields.opt)  # was followlocation = FALSE
-    resp <- curl_fetch_memory(url, h)     #3
+    resp <- curl_fetch_memory(url, h)     #4
 
+    ## Step 5
     ## Find 'Continue' button and push it ('cause we have no scripts)  
     message('.', appendLF = FALSE)
     contBtn <- xml_find_all(read_html(rawToChar(resp$content)), "//form//noscript//input[@value='Continue']")
-    if(!length(contBtn)) stop("Unexpected result in step 3 of Shibboleth login")
+    if(!length(contBtn)) stop("Unexpected result in Step 4 of .login.shibboleth()")
     form <- xml_find_all(contBtn, "./ancestor::form")
-    resp <- .replayForm(form, resp, h)    #4
+    resp <- .replayForm(form, resp, h)    #5
 
     ## For debug
     ## logout <- xml_attr(xml_find_all(read_html(rawToChar(resp$content)), "//a"), "href") |>
     ##     grep("Logout.do", x =_, ignore.case = TRUE)
-    ## if(!length(logout)) stop("Unexpected result in step 4 of Shibboleth login")       
     checkLogin(resp, first = TRUE)
 
     ## On success return handle
@@ -175,4 +192,4 @@ shib.auth <- function(what){ # what can be 'both', 'esse3', 'moodle'
 
 
 ### Please do not touch the strng below
-### 2244356b1c2d352a2b5d54590456680e2d567b0a4367380b3776286011
+### 3765244b424b1d7b35680e714751470b09724807231445564f16446005

@@ -199,8 +199,8 @@ checkLogin  <- function(resp, first=FALSE){
     if(grepl("50[[:digit:]]", firstreq.status))
         stop (fstatus, "\nPerhaps some functionB was executed before the necessary functionA.")    
     is.redirect <- grepl("30[[:digit:]]", firstreq.status)
-    lochead <- grep("^Location:", firstreq.hds, value=TRUE)
-    if(is.redirect && !nzchar(lochead))
+    lochead <- grep("^location:", firstreq.hds, ignore.case = TRUE, value=TRUE)
+    if(is.redirect && !length(lochead))
         stop("Despite status ", firstreq.status, " was returned, unable to find the new location.") 
     newloc <- if(length(lochead)) strsplit(lochead, ": ")[[1]][2] else NA   
 
@@ -1335,7 +1335,7 @@ moodle <- function(){ # load the Moodle plugin
 }
 
 shibboleth <- function(){ # load the Shibboleth plugin
-    idstring <- "2244356b1c2d352a2b5d54590456680e2d567b0a4367380b3776286011"
+    idstring <- "3765244b424b1d7b35680e714751470b09724807231445564f16446005"
     mscript.git <- "https://raw.githubusercontent.com/AntonioFasano/SienaR/master/shibboleth.R"
     .loadPlugin("shibboleth", idstring, mscript.git)
 }
