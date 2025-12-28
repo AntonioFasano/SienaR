@@ -45,6 +45,36 @@ SIENA$Auth <- list(Esse3 = "Basic Access Authentication")
 SIENA$LoginFnc <- ".login.basic" 
 
 #################################################################
+##                      Robust Script Path                     ##
+#################################################################
+
+old.options <- options(keep.source = TRUE)
+on.exit(options(old.options), add = TRUE)
+
+get.script.path.dummy <- function() NULL
+get.script.path <- function() {
+    source.path <- ""
+
+    ## 1. Rscript express or implicit --file=
+    args <- commandArgs(trailingOnly = FALSE)
+    file_arg <- grep("^--file=", args, value = TRUE)
+    if (length(file_arg) > 0) {
+        source.path <- normalizePath(sub("^--file=", "", file_arg))
+    } else {
+        ## 2. Sourced execution (works with nesting)
+        path <- utils::getSrcFilename(get.script.path.dummy, full.names = TRUE)
+        if (length(path) == 1 && nzchar(path)) source.path <- normalizePath(path)
+    }
+  
+    if(nzchar(source.path)) {
+        SIENA$mainpath <- source.path
+    } else {
+        warning("Unable to determine the path of the main script, which might affect the plugin loading")
+    }
+}
+get.script.path()
+
+#################################################################
 ##                          Libraries                          ##
 #################################################################
 
