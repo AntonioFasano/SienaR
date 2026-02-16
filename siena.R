@@ -617,12 +617,14 @@ getSit.studs <- function(# Get ESSE3 data for current course and sitting
         studata <- lapply(stulinks, function(stupag){
             ##        stupag <- stulinks[1] #debug
             stupag <- .query.split(str_replace(stupag, "^auth/docente/", "")) 
-            stupag <- read_html(paste(stupag, collapse = " "))    
-            l <- xml_text(xml_find_all(stupag,  "//div[@id='esse3old']/table/tr[3]/td/table/tr[1]/td/table/tr/th"))
-            d <- xml_text(xml_find_all(stupag,  "//div[@id='esse3old']/table/tr[3]/td/table/tr[1]/td/table/tr/td"), trim=TRUE)
+            stupag <- read_html(paste(stupag, collapse = " "))
+            recs <- xml_find_all(stupag,  "//div[@id='esse3old']/table/tr[3]/td/table/tr[1]/td/table/tr")
+            l <- xml_text(xml_find_all(recs, "./th"))
+            d <- xml_text(xml_find_all(recs, "./td"), trim=TRUE)
             names(d) <- l
-            message(d["e-mail:"])
-            c(d["Data di Nascita:"], d["e-mail:"], d["Codice Fiscale:"])
+            email <- xml_attr(xml_find_first(recs[which(l=="e-mail:")], "./td/a"), "title") # explicitly protected
+            message(email)
+            c(d["Data di Nascita:"], email, d["Codice Fiscale:"])
         })
 
         studata <- Reduce(rbind, studata, NULL) # null avoids dim reduction 
