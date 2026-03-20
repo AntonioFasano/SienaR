@@ -680,7 +680,7 @@ getPending <- function(){ # Get traffic lights data for due exams
 getSummary <- function( # Enrolled students for each course and for first available sitting from current date or a user given date
                        fromDate = Sys.Date()){
 
-    smry <- t(sapply(seq_along(unique(getCourses(prompt = FALSE))), function(cur){
+    smry <- t(sapply(1:nrow(unique(getCourses(prompt = FALSE))), function(cur){
         course <- setCourse(cur)
         dates <- as.Date(getSittings(prompt = FALSE)$datetime) # dates are descending
         enrolcount <- paste("No sitting available from", fromDate)
