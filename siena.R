@@ -1042,12 +1042,26 @@ add.credits <- function( # Add ESSE3 course credit weights to a Testmacs results
 ##                           Sittings                           ##
 ##################################################################
 
+addSitting.types <- function(){ # Print type of sittings
+
+    legend <- "
+addSitting(results = 'value;, ...) can be:
+Final exam 
+  'FWA': publish grades, allow rejection, 'FWS': no rejection, 'WEB': no results, just names.
+Midterm (akd partial exam)
+  'PAR': publish grades, 'LIS': no results, just names.
+"
+    message(legend)
+}
+
+
 addSitting <- function( # Add a new sittings for courseName. Returns the sitting ID to be used when adding the committee
                        courseName, # well spelled, but with whatever formatting 
                        examdate, examtime,   
                        bookStart = Sys.Date() +1 , bookEnd = examdate - 4,   
                        results,  # 'FWA': publish before, 'FWS': no rejection, 'WEB': no results just names. 
-                       examtype, # S/O Written/Oral                                                          
+                       examtype, # S/O Written/Oral
+                       mid =FALSE, # True for midterm (aka partial exam)
                        examdesc, examnote ="No notes"
                        ){ 
 
@@ -1072,6 +1086,15 @@ addSitting <- function( # Add a new sittings for courseName. Returns the sitting
     hour <- format(time, "%H")
     mint <- format(time, "%M")
 
+    exam.final <- c('FWA', 'FWS', 'WEB')
+    exam.mid <- c('PAR', 'LIS')
+    if(! results %in% c(exam.final, exam.mid)) {
+        stop("addSitting(results = ...) should be one of:\n  ",
+                paste(c(exam.final, exam.mid), collapse = ", "),
+                "\nUse addSitting.types() for more info.")
+    }
+    mid.or.final <- if(results %in% c(exam.mid)) "PP" else "PF"
+        
     setCourse.infer(courseName)
     message("Adding sitting for ", G$Courses$Course[G$CurCourse], ". Current course set accordingly")
 
@@ -1090,12 +1113,12 @@ addSitting <- function( # Add a new sittings for courseName. Returns the sitting
                GG_FINE_ISCR = "1", MOD_SES = "2", 
                `/WS/DataSet[@LocalEntityName='APP_LOG_DATI_WEB']/Row/cds_id` = progrid, 
                `/WS/DataSet[@LocalEntityName='APP_LOG_DATI_WEB']/Row/ad_id` = courseid, 
-               TIPO_PROVA = "PF", # Prova Finale
+               TIPO_PROVA = mid.or.final, # Prova Finale/Parziale
                `/WS/DataSet[@LocalEntityName='APP_LOG_DATI_WEB']/Row[@Num='1']/app_log_id` = "", 
                CHECK_MODIFICA = "1", NEW_APP = "1", 
                `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/data_inizio_app` = examdate, 
                hh_esa = hour, mm_esa = mint,
-               `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/tipo_gest_app_cod` = results, 
+               `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/tipo_gest_app_cod` = results,
                `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/tipo_iscr_cod_prev` = examtype, 
                `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/data_inizio_iscr` = bookStart, 
                `/WS/DataSet[@LocalEntityName='APP_CAL_ESA_WEB']/Row/data_fine_iscr` = bookEnd, 
